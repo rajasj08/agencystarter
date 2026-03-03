@@ -1,0 +1,10 @@
+-- AlterTable
+ALTER TABLE "Plan" ADD COLUMN     "createdById" TEXT,
+ADD COLUMN     "features" JSONB NOT NULL DEFAULT '{}',
+ADD COLUMN     "isCustom" BOOLEAN,
+ADD COLUMN     "isDefault" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "updatedById" TEXT,
+ALTER COLUMN "maxUsers" DROP DEFAULT,
+ALTER COLUMN "maxLocations" DROP DEFAULT,
+ALTER COLUMN "maxFacilities" DROP DEFAULT,
+ALTER COLUMN "maxEmployees" DROP DEFAULT;

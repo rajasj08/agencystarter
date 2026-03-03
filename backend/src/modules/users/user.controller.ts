@@ -1,0 +1,70 @@
+import type { Response } from "express";
+import { BaseController } from "../../core/BaseController.js";
+import { RESPONSE_CODES } from "../../constants/responseCodes.js";
+import { UserService } from "./user.service.js";
+import { createUserSchema, updateUserSchema } from "./user.validation.js";
+import type { AuthRequest } from "../../middleware/auth.js";
+import { audit } from "../../lib/audit.js";
+
+const userService = new UserService();
+
+export class UserController extends BaseController {
+  list = async (req: AuthRequest, res: Response): Promise<void> => {
+    const agencyId = req.user!.agencyId!;
+    const { page, limit, offset } = this.getPagination(req);
+    const { data, total } = await userService.list(agencyId, { page, limit, offset });
+    this.paginated(res, data, total, { page, limit }, RESPONSE_CODES.FETCHED);
+  };
+
+  getById = async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = this.getParams(req);
+    const agencyId = req.user!.agencyId!;
+    const data = await userService.getById(agencyId, id);
+    this.success(res, data, RESPONSE_CODES.FETCHED);
+  };
+
+  create = async (req: AuthRequest, res: Response): Promise<void> => {
+    const parsed = createUserSchema.safeParse(this.getBody(req));
+    if (!parsed.success) {
+      this.fail(res, "VALIDATION_ERROR", "Validation failed", 400, parsed.error.flatten().fieldErrors as Record<string, unknown>);
+      return;
+    }
+    const agencyId = req.user!.agencyId!;
+    const data = await userService.create(agencyId, parsed.data);
+    await audit(req, {
+      action: parsed.data.invite ? "user.invited" : "user.created",
+      resource: "user",
+      resourceId: data.id,
+      details: { email: data.email, role: data.role },
+    });
+    this.created(res, data, parsed.data.invite ? "Invitation sent" : "User created");
+  };
+
+  update = async (req: AuthRequest, res: Response): Promise<void> => {
+    const parsed = updateUserSchema.safeParse(this.getBody(req));
+    if (!parsed.success) {
+      this.fail(res, "VALIDATION_ERROR", "Validation failed", 400, parsed.error.flatten().fieldErrors as Record<string, unknown>);
+      return;
+    }
+    const { id } = this.getParams(req);
+    const agencyId = req.user!.agencyId!;
+    const data = await userService.update(agencyId, id, parsed.data);
+    await audit(req, { action: "user.updated", resource: "user", resourceId: id, details: parsed.data });
+    this.success(res, data, RESPONSE_CODES.UPDATED, "User updated");
+  };
+
+  delete = async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = this.getParams(req);
+    const agencyId = req.user!.agencyId!;
+    await userService.delete(agencyId, id);
+    await audit(req, { action: "user.deleted", resource: "user", resourceId: id });
+    this.success(res, null, RESPONSE_CODES.DELETED, "User deleted");
+  };
+
+  sendPasswordReset = async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = this.getParams(req);
+    const agencyId = req.user!.agencyId!;
+    const result = await userService.sendPasswordReset(agencyId, id);
+    this.success(res, result, RESPONSE_CODES.PASSWORD_RESET_SENT, result.message);
+  };
+}

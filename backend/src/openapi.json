@@ -1,0 +1,20 @@
+{
+  "openapi": "3.0.0",
+  "info": { "title": "Agency Starter API", "version": "1.0.0" },
+  "servers": [{ "url": "/api/v1", "description": "API v1" }],
+  "paths": {
+    "/health": { "get": { "summary": "Liveness", "responses": { "200": { "description": "OK" } } } },
+    "/health/db": { "get": { "summary": "DB connectivity", "responses": { "200": { "description": "Connected" }, "503": { "description": "Disconnected" } } } },
+    "/system/info": { "get": { "summary": "Version and environment", "responses": { "200": { "description": "OK" } } } },
+    "/auth/login": { "post": { "summary": "Login", "responses": { "200": { "description": "Tokens + user" }, "401": { "description": "Invalid credentials" } } } },
+    "/auth/register": { "post": { "summary": "Register", "responses": { "201": { "description": "Created" }, "400": { "description": "Validation error" } } } },
+    "/auth/me": { "get": { "summary": "Current user", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "User" }, "401": { "description": "Unauthorized" } } } },
+    "/agencies": { "get": { "summary": "List agencies", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "List" } } }, "post": { "summary": "Create agency", "security": [{ "bearerAuth": [] }], "responses": { "201": { "description": "Created" } } } },
+    "/users": { "get": { "summary": "List users (paginated)", "security": [{ "bearerAuth": [] }], "parameters": [{ "name": "page", "in": "query", "schema": { "type": "integer" } }, { "name": "limit", "in": "query", "schema": { "type": "integer" } }], "responses": { "200": { "description": "Paginated list" } } }, "post": { "summary": "Create or invite user", "security": [{ "bearerAuth": [] }], "responses": { "201": { "description": "Created" } } } }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    }
+  }
+}

@@ -1,0 +1,86 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AppCard, AppButton } from "@/components/design";
+import {
+  FormProviderWrapper,
+  FormInput,
+  FormPassword,
+  FormRootError,
+} from "@/components/forms";
+import { useAppForm } from "@/components/forms/useAppForm";
+import { loginSchema, type LoginFormValues } from "@/validations/auth";
+import { useAuthStore } from "@/store/auth";
+import { login } from "@/services/auth";
+import { setFormApiError } from "@/lib/formErrors";
+import { ROUTES } from "@/constants/routes";
+import { ROLES } from "@/constants/permissions";
+
+export function LoginForm() {
+  const router = useRouter();
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const form = useAppForm<typeof loginSchema>({
+    schema: loginSchema,
+    defaultValues: { email: "", password: "" },
+  });
+
+  async function onSubmit(data: LoginFormValues) {
+    try {
+      const result = await login(data.email, data.password);
+      setAuth(result.user, result.accessToken, result.refreshToken);
+      // SUPER_ADMIN is platform-level: never onboarding, always /superadmin
+      let dest: string;
+      if (result.user.role === ROLES.SUPER_ADMIN) {
+        dest = ROUTES.SUPERADMIN;
+      } else if (result.user.agencyId) {
+        dest = result.user.agency?.onboardingCompleted ? ROUTES.DASHBOARD : ROUTES.ONBOARDING;
+      } else {
+        dest = ROUTES.ONBOARDING;
+      }
+      router.push(dest);
+    } catch (err) {
+      setFormApiError<LoginFormValues>(form.setError, err, "Login failed");
+    }
+  }
+
+  return (
+    <AppCard
+      title="Login"
+      footer={
+        <>
+          <AppButton
+            form="login-form"
+            type="submit"
+            loading={form.formState.isSubmitting}
+            className="shrink-0"
+          >
+            Sign in
+          </AppButton>
+          <div className="flex flex-col items-end gap-1 text-sm text-text-secondary">
+            <Link href={ROUTES.FORGOT_PASSWORD} className="text-primary font-medium">
+              Forgot password?
+            </Link>
+            <span>
+              No account?{" "}
+              <Link href={ROUTES.REGISTER} className="text-primary font-medium">
+                Register
+              </Link>
+            </span>
+          </div>
+        </>
+      }
+    >
+      <FormProviderWrapper
+        form={form}
+        id="login-form"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <FormRootError />
+        <FormInput name="email" label="auth.email" type="email" autoComplete="email" />
+        <FormPassword name="password" label="auth.password" autoComplete="current-password" />
+      </FormProviderWrapper>
+    </AppCard>
+  );
+}
+

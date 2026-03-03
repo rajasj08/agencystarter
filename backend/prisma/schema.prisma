@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Global system settings (single row; super-admin-only update). Agency.settings remains per-tenant.
+model SystemSettings {
+  id                        String   @id @default(cuid())
+  allowRegistration         Boolean  @default(true)
+  emailVerificationRequired Boolean  @default(false)
+  maintenanceMessage        String?
+  defaultTheme              String   @default("light")
+  allowAgencyRegistration   Boolean  @default(true)
+  maxUsersPerAgency        Int?
+  defaultTimezone          String   @default("UTC")
+  maintenanceMode          Boolean  @default(false)
+  updatedAt                 DateTime @updatedAt
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  DISABLED
+  SUSPENDED
+  INVITED
+}
+
+enum AgencyStatus {
+  ACTIVE
+  DISABLED
+  SUSPENDED
+  DELETED
+}
+
+model Agency {
+  id                   String       @id @default(cuid())
+  name                 String
+  slug                 String       @unique
+  planId               String?
+  logo                 String?
+  websiteUrl           String?
+  supportEmail         String?
+  supportPhone         String?
+  contactFirstName     String?
+  contactLastName      String?
+  contactEmail         String?
+  contactPhone         String?
+  onboardingCompleted  Boolean      @default(false)
+  status               AgencyStatus @default(ACTIVE)
+  settings             Json?        @default("{}")
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  plan   Plan?   @relation(fields: [planId], references: [id], onDelete: SetNull)
+  users  User[]
+  roles  Role[]
+  subscriptions Subscription[]
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+}
+
+model Role {
+  id        String   @id @default(cuid())
+  name      String
+  agencyId  String?
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agency          Agency?          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@unique([name, agencyId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model User {
+  id              String     @id @default(cuid())
+  agencyId        String?
+  roleId          String?
+  email           String     @unique
+  passwordHash    String     @map("password")
+  firstName       String?
+  lastName        String?
+  displayName     String?
+  phone           String?
+  avatarUrl       String?
+  jobTitle        String?
+  department      String?
+  preferences     Json?      @default("{}")
+  status          UserStatus @default(ACTIVE)
+  role            String?    // Legacy: used until roleId backfilled; then removed
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+
+  agency             Agency?             @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  roleRef            Role?               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  sessions           Session[]
+  emailVerifications EmailVerification[]
+  passwordResets     PasswordReset[]
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+  notificationReads  NotificationRead[]
+}
+
+model Session {
+  id             String   @id @default(cuid())
+  userId         String
+  refreshTokenHash String
+  ipAddress      String?
+  userAgent      String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  agencyId       String?
+  userId         String
+  targetUserId   String?
+  action         String
+  resource       String
+  resourceId     String?
+  details        Json?
+  impersonation  Boolean  @default(false)
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Notifications (placeholder for in-app notifications)
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String?
+  type      String   @default("info")
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationReads NotificationRead[]
+}
+
+model NotificationRead {
+  id             String   @id @default(cuid())
+  notificationId String
+  userId         String
+  readAt         DateTime @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+}
+
+// Plans define limits and pricing per agency (multi-tenant).
+model Plan {
+  id             String    @id @default(cuid())
+  name           String
+  code           String    @unique // e.g. FREE, STARTER, PRO, ENTERPRISE
+  description    String?
+  price          Int       @default(0) // in smallest currency unit (e.g. cents) or display units
+  maxUsers       Int
+  maxLocations   Int
+  maxFacilities  Int
+  maxEmployees   Int
+  features       Json      @default("{}") // e.g. { "reports": true, "auditLogs": true }
+  isActive       Boolean   @default(true) // Can agencies use it?
+  isDefault      Boolean   @default(false) // Assigned automatically?
+  isCustom       Boolean?   // Enterprise-only custom plan?
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  agencies      Agency[]
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id             String    @id @default(cuid())
+  agencyId       String
+  planId         String
+  status         String    @default("active")
+  currentPeriodEnd DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoices Invoice[]
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  amountCents    Int
+  status         String   @default("draft")
+  dueAt          DateTime?
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
