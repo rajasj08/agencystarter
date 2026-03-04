@@ -16,11 +16,11 @@ export function RoleFormContent({ mode, isSystem, initialData }: RoleFormContent
   return (
     <div className="grid grid-cols-1 gap-6">
       <div className="space-y-6">
-        <Card className="rounded-2xl border border-border p-6 shadow-sm">
-          <CardHeader className="border-0 p-0 pb-4">
+        <Card className="rounded-2xl shadow-sm">
+          <CardHeader className="pb-4">
             <CardTitle className="text-base font-medium">Role Information</CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="space-y-4 p-6">
             <div className="max-w-md">
               {isSystem ? (
                 <>
@@ -37,11 +37,11 @@ export function RoleFormContent({ mode, isSystem, initialData }: RoleFormContent
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border border-border p-6 shadow-sm">
-          <CardHeader className="border-0 p-0 pb-4">
+        <Card className="rounded-2xl shadow-sm">
+          <CardHeader className="pb-4">
             <CardTitle className="text-base font-medium">Permissions</CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="space-y-4 p-6">
             <p className="mb-4 text-sm text-text-secondary">
               Assign permissions to this role. You can only assign permissions that you have.
             </p>

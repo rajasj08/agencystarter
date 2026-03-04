@@ -22,13 +22,9 @@ import {
 } from "@/components/ui/dialog";
 import { getPlans, deletePlan, updatePlan, type Plan } from "@/services/superadmin";
 import { ROUTES } from "@/constants/routes";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { toast } from "@/lib/toast";
 import { Pencil, Trash2, Plus, Star } from "lucide-react";
-
-function getApiErrorMessage(err: unknown, fallback: string): string {
-  const res = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  return res ?? (err instanceof Error ? err.message : fallback);
-}
 
 export default function SuperadminPlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);

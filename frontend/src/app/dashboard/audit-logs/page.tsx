@@ -2,7 +2,6 @@
 
 import { useEffect, useCallback, useState } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { AppCard } from "@/components/design";
 import { DataTable, type DataTableColumn } from "@/components/design";
 import { getAuditLogs } from "@/modules/auditLogs/services/auditLogService";
 import type { AuditLogEntry } from "@/modules/auditLogs/services/auditLogService";
@@ -59,27 +58,25 @@ export default function AuditLogsPage() {
 
   return (
     <PageContainer title="Audit Logs">
-      <AppCard className="rounded-xl p-6">
-        {error && (
-          <p className="mb-4 text-sm text-danger" role="alert">
-            {error}
-          </p>
-        )}
-        <DataTable<AuditLogEntry>
-          columns={columns}
-          data={data}
-          keyExtractor={(row) => row.id}
-          emptyMessage="No audit log entries."
-          loading={loading}
-          pagination={{
-            page: meta.page,
-            limit: meta.limit,
-            total: meta.total,
-            onPageChange: load,
-          }}
-          className="rounded-xl"
-        />
-      </AppCard>
+      {error && (
+        <p className="mb-4 text-sm text-danger" role="alert">
+          {error}
+        </p>
+      )}
+      <DataTable<AuditLogEntry>
+        columns={columns}
+        data={data}
+        keyExtractor={(row) => row.id}
+        emptyMessage="No audit log entries."
+        loading={loading}
+        pagination={{
+          page: meta.page,
+          limit: meta.limit,
+          total: meta.total,
+          onPageChange: load,
+        }}
+        className="rounded-xl"
+      />
     </PageContainer>
   );
 }

@@ -89,7 +89,7 @@ export default function RoleEditPage() {
 
   if (loading && !role) {
     return (
-      <div className="mx-auto max-w-[1200px] px-6 py-6">
+      <div className="mx-auto max-w-[1200px]">
         <p className="text-text-secondary">Loading…</p>
       </div>
     );
@@ -97,7 +97,7 @@ export default function RoleEditPage() {
 
   if (error && !role) {
     return (
-      <div className="mx-auto max-w-[1200px] px-6 py-6">
+      <div className="mx-auto max-w-[1200px]">
         <p className="text-danger" role="alert">
           {error}
         </p>
@@ -111,7 +111,7 @@ export default function RoleEditPage() {
   if (!role) return null;
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-6">
+    <div className="mx-auto max-w-[1200px]">
       <FormProviderWrapper form={form} onSubmit={handleSubmit} id="edit-role-form">
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>

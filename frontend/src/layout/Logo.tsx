@@ -12,7 +12,7 @@ export function Logo() {
   return (
     <Link
       href={ROUTES.DASHBOARD}
-      className="flex items-center gap-2 font-semibold text-lg text-sidebar-foreground hover:text-sidebar-foreground/90 focus:outline-none focus:ring-2 focus:ring-sidebar-ring focus:ring-offset-2 rounded-md"
+      className="flex items-center gap-2 font-semibold text-lg text-sidebar-foreground hover:text-sidebar-foreground/90 focus:outline-none focus:ring-1 focus:ring-sidebar-ring focus:ring-offset-2 rounded-md"
       aria-label={`${APP_NAME} home`}
     >
       {APP_NAME}

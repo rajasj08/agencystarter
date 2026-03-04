@@ -77,7 +77,7 @@ export function useUserMutations() {
       return await userService.createUser(payload);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create user");
-      return null;
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -90,7 +90,7 @@ export function useUserMutations() {
       return await userService.updateUser(id, payload);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to update user");
-      return null;
+      throw e;
     } finally {
       setLoading(false);
     }

@@ -113,11 +113,11 @@ export function GeneralSettingsForm({ initialData, onSubmit, loading = false }: 
 
   return (
     <FormProviderWrapper form={form as never} onSubmit={onSubmit} className="space-y-6">
-      <Card className="rounded-2xl border border-border p-6 shadow-sm">
-        <CardHeader className="border-0 p-0 pb-4">
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader className="pb-4">
           <CardTitle className="text-base font-medium">Agency Identity</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="space-y-4 p-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormInput name="name" label="Agency name" />
             <FormInput name="slug" label="Agency slug" placeholder="my-agency" disabled />
@@ -129,11 +129,11 @@ export function GeneralSettingsForm({ initialData, onSubmit, loading = false }: 
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl border border-border p-6 shadow-sm">
-        <CardHeader className="border-0 p-0 pb-4">
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader className="pb-4">
           <CardTitle className="text-base font-medium">Primary contact</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="space-y-4 p-6">
           <p className="mb-4 text-sm text-text-secondary">Main contact person for this agency.</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormInput name="contactFirstName" label="Contact first name" />
@@ -144,11 +144,11 @@ export function GeneralSettingsForm({ initialData, onSubmit, loading = false }: 
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl border border-border p-6 shadow-sm">
-        <CardHeader className="border-0 p-0 pb-4">
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader className="pb-4">
           <CardTitle className="text-base font-medium">Localization</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="space-y-4 p-6">
           <p className="mb-4 text-sm text-text-secondary">
             Default timezone, language, date format and currency for the agency.
           </p>

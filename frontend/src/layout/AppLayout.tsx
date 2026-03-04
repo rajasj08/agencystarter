@@ -22,7 +22,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <SidebarInset>
           <ImpersonationBanner />
           <Header />
-          <main className="min-h-0 flex-1 overflow-auto px-5 py-5 text-[17px]" role="main">
+          <main className="min-h-0 flex-1 overflow-auto px-6 py-6 text-[17px]" role="main">
             {children}
           </main>
         </SidebarInset>

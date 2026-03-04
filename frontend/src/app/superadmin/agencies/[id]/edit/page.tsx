@@ -102,7 +102,7 @@ export default function SuperadminAgencyEditPage() {
 
   if (loading && !agency) {
     return (
-      <div className="mx-auto max-w-[1200px] px-6 py-6">
+      <div className="mx-auto max-w-[1200px]">
         <p className="text-text-secondary">Loading…</p>
       </div>
     );
@@ -110,7 +110,7 @@ export default function SuperadminAgencyEditPage() {
 
   if (notFound || !agency) {
     return (
-      <div className="mx-auto max-w-[1200px] px-6 py-6">
+      <div className="mx-auto max-w-[1200px]">
         <p className="text-text-secondary">Agency not found.</p>
         <AppButton
           variant="outline"
@@ -124,7 +124,7 @@ export default function SuperadminAgencyEditPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-6">
+    <div className="mx-auto max-w-[1200px]">
       <FormProviderWrapper form={form} onSubmit={handleSubmit} id="edit-agency-form">
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -147,11 +147,11 @@ export default function SuperadminAgencyEditPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="space-y-6 lg:col-span-8">
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Agency Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 p-0">
+              <CardContent className="space-y-4 p-6">
                 <div className="space-y-4">
                   <FormInput name="name" label="Agency name" required />
                   <div>

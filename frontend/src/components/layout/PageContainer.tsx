@@ -12,7 +12,7 @@ interface PageContainerProps {
 
 export function PageContainer({ title, actions, breadcrumbs, children }: PageContainerProps) {
   return (
-    <div className="max-w-content mx-auto px-0">
+    <div className="mx-auto max-w-[1200px]">
       {breadcrumbs && breadcrumbs.length > 0 && (
         <Breadcrumb items={breadcrumbs} className="mb-2" />
       )}

@@ -125,11 +125,11 @@ export function EmailSettingsForm() {
   return (
     <div className="space-y-6">
       <FormProviderWrapper form={form as never} onSubmit={handleSubmit} className="space-y-6">
-        <Card className="rounded-2xl border border-border p-6 shadow-sm">
-          <CardHeader className="border-0 p-0 pb-4">
+        <Card className="rounded-2xl shadow-sm">
+          <CardHeader className="pb-4">
             <CardTitle className="text-base font-medium">SMTP</CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="space-y-4 p-6">
             <p className="mb-4 text-sm text-text-secondary">
               Configure the SMTP server used to send emails (verification, password reset, etc.).
             </p>
@@ -145,11 +145,11 @@ export function EmailSettingsForm() {
         </Card>
 
         <div className="max-w-[50%] space-y-6">
-        <Card className="rounded-2xl border border-border p-6 shadow-sm">
-          <CardHeader className="border-0 p-0 pb-4">
+        <Card className="rounded-2xl shadow-sm">
+          <CardHeader className="pb-4">
             <CardTitle className="text-base font-medium">Email features</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 p-0">
+          <CardContent className="space-y-4 p-6">
             <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
               <div>
                 <span className="text-sm font-medium text-text-primary">Enable emails</span>
@@ -175,11 +175,11 @@ export function EmailSettingsForm() {
       </FormProviderWrapper>
 
       <div className="max-w-[50%]">
-      <Card className="rounded-2xl border border-border p-6 shadow-sm">
-        <CardHeader className="border-0 p-0 pb-4">
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader className="pb-4">
           <CardTitle className="text-base font-medium">Test email</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="space-y-4 p-6">
           <p className="mb-4 text-sm text-text-secondary">Send a test email to verify your SMTP configuration.</p>
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-[200px] flex-1">

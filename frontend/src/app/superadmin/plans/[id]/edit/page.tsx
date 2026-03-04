@@ -125,7 +125,7 @@ export default function SuperadminPlanEditPage() {
 
   if (loading && !initialValues) {
     return (
-      <div className="mx-auto max-w-[1200px] px-6 py-6">
+      <div className="mx-auto max-w-[1200px]">
         <AppCard className="rounded-2xl p-6">
           <p className="text-text-secondary">Loading…</p>
         </AppCard>
@@ -135,7 +135,7 @@ export default function SuperadminPlanEditPage() {
 
   if (notFound || !initialValues) {
     return (
-      <div className="mx-auto max-w-[1200px] px-6 py-6">
+      <div className="mx-auto max-w-[1200px]">
         <AppCard className="rounded-2xl p-6">
           <p className="text-text-secondary">Plan not found.</p>
           <AppButton variant="outline" className="mt-4" onClick={() => router.push(ROUTES.SUPERADMIN_PLANS)}>
@@ -147,7 +147,7 @@ export default function SuperadminPlanEditPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-6">
+    <div className="mx-auto max-w-[1200px]">
       <FormProviderWrapper form={form} onSubmit={handleSubmit} id="edit-plan-form">
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -168,11 +168,11 @@ export default function SuperadminPlanEditPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="space-y-6 lg:col-span-8">
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Plan Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 p-0">
+              <CardContent className="space-y-4 p-6">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <FormInput name="name" label="Plan Name" required />
                   <div>
@@ -187,20 +187,20 @@ export default function SuperadminPlanEditPage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Pricing</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="space-y-4 p-6">
                 <FormInput name="price" label="Price" type="number" min={0} helperText="Set price to 0 for free plan." />
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Usage Limits</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="space-y-4 p-6">
                 <p className="mb-4 text-xs text-gray-500">Use -1 for unlimited.</p>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <FormInput name="maxUsers" label="Max Users" type="number" min={-1} />
@@ -211,11 +211,11 @@ export default function SuperadminPlanEditPage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Enabled Features</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="space-y-4 p-6">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {PLAN_FEATURE_KEYS.map((key) => (
                     <FeatureToggleEdit key={key} name={`features.${key}`} label={featureLabels[key] ?? key} />
@@ -225,11 +225,11 @@ export default function SuperadminPlanEditPage() {
             </Card>
 
             <div className="max-w-md">
-              <Card className="rounded-2xl border border-border p-6 shadow-sm">
-                <CardHeader className="border-0 p-0 pb-4">
+              <Card className="rounded-2xl shadow-sm">
+                <CardHeader className="pb-4">
                   <CardTitle className="text-base font-medium">Plan Status</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4 p-0">
+                <CardContent className="space-y-4 p-6">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-text-primary">Status</label>
                     <select

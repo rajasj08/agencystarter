@@ -69,7 +69,7 @@ export default function SuperadminAgencyCreatePage() {
   );
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-6">
+    <div className="mx-auto max-w-[1200px]">
       <FormProviderWrapper form={form} onSubmit={handleSubmit} id="create-agency-form">
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -95,11 +95,11 @@ export default function SuperadminAgencyCreatePage() {
 
         <div className="grid grid-cols-1 gap-6">
           <div className="space-y-6">
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Agency Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 p-0">
+              <CardContent className="space-y-4 p-6">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <FormInput name="name" label="Agency name" required />
                   <div>
@@ -130,11 +130,11 @@ export default function SuperadminAgencyCreatePage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Admin User</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 p-0">
+              <CardContent className="space-y-4 p-6">
                 <p className="text-xs text-gray-500">The first user for this agency (agency admin).</p>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <FormInput name="adminEmail" label="Admin email" type="email" required />

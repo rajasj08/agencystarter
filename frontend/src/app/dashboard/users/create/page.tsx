@@ -9,6 +9,7 @@ import { useAppForm } from "@/components/forms/useAppForm";
 import { useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { setFormApiError } from "@/lib/formErrors";
+import { toast } from "@/lib/toast";
 import { useUserMutations } from "@/modules/users/hooks/useUsers";
 import { ROUTES } from "@/constants/routes";
 import { ROLES } from "@/constants/permissions";
@@ -64,7 +65,8 @@ export default function UserCreatePage() {
         };
         const user = await createUser(input);
         if (user) {
-          router.push(ROUTES.USER_VIEW(user.id));
+          toast.success(input.invite ? "Invitation sent." : "User created.");
+          router.push(ROUTES.USERS);
         }
       } catch (err) {
         setFormApiError<FormValues>(form.setError, err, "Create user failed");
@@ -76,7 +78,7 @@ export default function UserCreatePage() {
   const invite = form.watch("invite");
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-6">
+    <div className="mx-auto max-w-[1200px]">
       <FormProviderWrapper form={form} onSubmit={handleSubmit} id="create-user-form">
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -97,11 +99,11 @@ export default function UserCreatePage() {
 
         <div className="grid grid-cols-1 gap-6">
           <div className="space-y-6">
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">User Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 p-0">
+              <CardContent className="space-y-4 p-6">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <FormInput name="email" label="Email" type="email" required />
                   <FormInput name="name" label="Display name" />

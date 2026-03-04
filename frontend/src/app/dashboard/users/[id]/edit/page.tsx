@@ -9,6 +9,7 @@ import { useAppForm } from "@/components/forms/useAppForm";
 import { z } from "zod";
 import { LastEditedSummary } from "@/components/LastEditedSummary";
 import { setFormApiError } from "@/lib/formErrors";
+import { toast } from "@/lib/toast";
 import { useUser, useUserMutations } from "@/modules/users/hooks/useUsers";
 import { ROUTES } from "@/constants/routes";
 import { ROLES } from "@/constants/permissions";
@@ -76,6 +77,7 @@ export default function UserEditPage() {
         };
         const updated = await updateUser(id, input);
         if (updated) {
+          toast.success("User updated.");
           router.push(ROUTES.USERS);
         }
       } catch (err) {
@@ -87,8 +89,8 @@ export default function UserEditPage() {
 
   if ((loadingUser && !user) || (user && !initialValues)) {
     return (
-      <div className="mx-auto max-w-[1200px] px-6 py-6">
-        <Card className="rounded-2xl border border-border p-6 shadow-sm">
+      <div className="mx-auto max-w-[1200px]">
+        <Card className="rounded-2xl shadow-sm">
           <p className="text-text-secondary">Loading…</p>
         </Card>
       </div>
@@ -97,8 +99,8 @@ export default function UserEditPage() {
 
   if (fetchError && !user) {
     return (
-      <div className="mx-auto max-w-[1200px] px-6 py-6">
-        <Card className="rounded-2xl border border-border p-6 shadow-sm">
+      <div className="mx-auto max-w-[1200px]">
+        <Card className="rounded-2xl shadow-sm">
           <p className="text-text-secondary">{fetchError}</p>
           <AppButton variant="outline" className="mt-4" onClick={() => router.push(ROUTES.USERS)}>
             Back to Users
@@ -113,7 +115,7 @@ export default function UserEditPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-6">
+    <div className="mx-auto max-w-[1200px]">
       <FormProviderWrapper form={form} onSubmit={handleSubmit} id="edit-user-form">
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -134,11 +136,11 @@ export default function UserEditPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="space-y-6 lg:col-span-8">
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">User Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 p-0">
+              <CardContent className="space-y-4 p-6">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-text-primary">Email</label>
                   <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-text-secondary">

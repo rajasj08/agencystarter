@@ -90,7 +90,7 @@ export default function SuperadminPlanCreatePage() {
   );
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-6">
+    <div className="mx-auto max-w-[1200px]">
       <FormProviderWrapper form={form} onSubmit={handleSubmit} id="create-plan-form">
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -111,11 +111,11 @@ export default function SuperadminPlanCreatePage() {
 
         <div className="grid grid-cols-1 gap-6">
           <div className="space-y-6">
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Plan Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 p-0">
+              <CardContent className="space-y-4 p-6">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <FormInput name="name" label="Plan Name" required />
                   <div>
@@ -127,20 +127,20 @@ export default function SuperadminPlanCreatePage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Pricing</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="space-y-4 p-6">
                 <FormInput name="price" label="Price" type="number" min={0} helperText="Set price to 0 for free plan." />
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Usage Limits</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="space-y-4 p-6">
                 <p className="mb-4 text-xs text-gray-500">Use -1 for unlimited.</p>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <FormInput name="maxUsers" label="Max Users" type="number" min={-1} />
@@ -151,11 +151,11 @@ export default function SuperadminPlanCreatePage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border border-border p-6 shadow-sm">
-              <CardHeader className="border-0 p-0 pb-4">
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium">Enabled Features</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="space-y-4 p-6">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {PLAN_FEATURE_KEYS.map((key) => (
                     <FeatureToggle key={key} name={`features.${key}`} label={featureLabels[key] ?? key} />
@@ -165,11 +165,11 @@ export default function SuperadminPlanCreatePage() {
             </Card>
 
             <div className="max-w-md">
-              <Card className="rounded-2xl border border-border p-6 shadow-sm">
-                <CardHeader className="border-0 p-0 pb-4">
+              <Card className="rounded-2xl shadow-sm">
+                <CardHeader className="pb-4">
                   <CardTitle className="text-base font-medium">Plan Status</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4 p-0">
+                <CardContent className="space-y-4 p-6">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-text-primary">Status</label>
                     <select
