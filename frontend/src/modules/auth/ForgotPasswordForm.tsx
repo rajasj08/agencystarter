@@ -56,7 +56,7 @@ export function ForgotPasswordForm() {
         </AppButton>
       }
     >
-      <FormProviderWrapper form={form} id="forgot-form" onSubmit={form.handleSubmit(onSubmit)}>
+      <FormProviderWrapper form={form} id="forgot-form" onSubmit={onSubmit}>
         <FormRootError />
         <FormInput name="email" label="auth.email" type="email" autoComplete="email" />
         <p className="text-sm text-text-secondary text-center pt-2">

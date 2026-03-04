@@ -36,6 +36,12 @@ enum AgencyStatus {
   DELETED
 }
 
+// DB-enforced separation: PLATFORM = superadmin only, TENANT = agency-scoped
+enum PermissionScope {
+  PLATFORM
+  TENANT
+}
+
 model Agency {
   id                   String       @id @default(cuid())
   name                 String
@@ -52,6 +58,7 @@ model Agency {
   onboardingCompleted  Boolean      @default(false)
   status               AgencyStatus @default(ACTIVE)
   settings             Json?        @default("{}")
+  updatedById          String?
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
@@ -62,30 +69,34 @@ model Agency {
 }
 
 model Permission {
-  id          String   @id @default(cuid())
-  key         String   @unique
+  id          String           @id @default(cuid())
+  key         String           @unique
   name        String
   description String?
-  isSystem    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  scope       PermissionScope  @default(TENANT)
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   rolePermissions RolePermission[]
 }
 
 model Role {
-  id        String   @id @default(cuid())
-  name      String
-  agencyId  String?
-  isSystem  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(cuid())
+  name        String
+  agencyId    String?
+  isSystem    Boolean   @default(false)
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   agency          Agency?          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  updatedBy       User?            @relation("RoleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   users           User[]
   rolePermissions RolePermission[]
 
   @@unique([name, agencyId])
+  @@index([agencyId])
 }
 
 model RolePermission {
@@ -119,9 +130,17 @@ model User {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   deletedAt       DateTime?
+  updatedById     String?
 
   agency             Agency?             @relation(fields: [agencyId], references: [id], onDelete: SetNull)
   roleRef            Role?               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  updatedBy          User?               @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  usersUpdatedBy     User[]              @relation("UserUpdatedBy")
+
+  @@index([agencyId, deletedAt])
+  @@index([agencyId, roleId, status])
+  @@index([deletedAt])
+  rolesUpdatedBy     Role[]               @relation("RoleUpdatedBy")
   sessions           Session[]
   emailVerifications EmailVerification[]
   passwordResets     PasswordReset[]

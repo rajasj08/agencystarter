@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import { authMiddleware } from "../../middleware/auth.js";
+import { rateLimitLogin } from "../../middleware/rateLimitLogin.js";
 import { AuthController } from "./auth.controller.js";
 
 const router = Router();
 const controller = new AuthController();
 
-router.post("/login", asyncHandler(controller.login.bind(controller)));
+router.post("/login", rateLimitLogin, asyncHandler(controller.login.bind(controller)));
 router.post("/register", asyncHandler(controller.register.bind(controller)));
 router.post("/refresh", asyncHandler(controller.refresh.bind(controller)));
 router.post("/logout", asyncHandler(controller.logout.bind(controller)));

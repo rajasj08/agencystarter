@@ -10,12 +10,20 @@ export interface Permission {
   isSystem: boolean;
 }
 
+export interface RoleEditor {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface Role {
   id: string;
   name: string;
   agencyId: string | null;
   isSystem: boolean;
   permissionIds: string[];
+  updatedAt?: string;
+  updatedBy?: RoleEditor | null;
 }
 
 export interface RoleDetail extends Role {}

@@ -7,6 +7,12 @@ import type { CreatePlanInput, UpdatePlanInput } from "./plans.validation.js";
 
 const repo = new PlansRepository(prisma);
 
+export interface PlanEditorDTO {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface PlanDTO {
   id: string;
   name: string;
@@ -23,29 +29,33 @@ export interface PlanDTO {
   isCustom: boolean | null;
   createdById: string | null;
   updatedById: string | null;
+  updatedBy: PlanEditorDTO | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-function toDTO(row: {
-  id: string;
-  name: string;
-  code: string;
-  description: string | null;
-  price: number;
-  maxUsers: number;
-  maxLocations: number;
-  maxFacilities: number;
-  maxEmployees: number;
-  features: unknown;
-  isActive: boolean;
-  isDefault: boolean;
-  isCustom: boolean | null;
-  createdById: string | null;
-  updatedById: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): PlanDTO {
+function toDTO(
+  row: {
+    id: string;
+    name: string;
+    code: string;
+    description: string | null;
+    price: number;
+    maxUsers: number;
+    maxLocations: number;
+    maxFacilities: number;
+    maxEmployees: number;
+    features: unknown;
+    isActive: boolean;
+    isDefault: boolean;
+    isCustom: boolean | null;
+    createdById: string | null;
+    updatedById: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+  updatedBy: PlanEditorDTO | null = null
+): PlanDTO {
   return {
     id: row.id,
     name: row.name,
@@ -64,6 +74,7 @@ function toDTO(row: {
     isCustom: row.isCustom,
     createdById: row.createdById,
     updatedById: row.updatedById,
+    updatedBy,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -72,12 +83,27 @@ function toDTO(row: {
 export class PlansService {
   async list(activeOnly: boolean): Promise<PlanDTO[]> {
     const rows = await repo.findMany(activeOnly);
-    return rows.map(toDTO);
+    return rows.map((row) => toDTO(row, null));
   }
 
   async getById(id: string): Promise<PlanDTO | null> {
     const row = await repo.findById(id);
-    return row ? toDTO(row) : null;
+    if (!row) return null;
+    let updatedBy: PlanEditorDTO | null = null;
+    if (row.updatedById) {
+      const user = await prisma.user.findUnique({
+        where: { id: row.updatedById },
+        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
+      });
+      if (user) {
+        const name =
+          user.displayName?.trim() ||
+          [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+          user.email;
+        updatedBy = { id: user.id, name, email: user.email };
+      }
+    }
+    return toDTO(row, updatedBy);
   }
 
   async create(input: CreatePlanInput): Promise<PlanDTO> {
@@ -90,10 +116,10 @@ export class PlansService {
       await repo.clearOtherDefaults(row.id);
     }
     invalidatePlanCache();
-    return toDTO(row);
+    return toDTO(row, null);
   }
 
-  async update(id: string, input: UpdatePlanInput): Promise<PlanDTO> {
+  async update(id: string, input: UpdatePlanInput & { updatedById?: string | null }): Promise<PlanDTO> {
     const plan = await repo.findById(id);
     if (!plan) throw new AppError(ERROR_CODES.PLAN_NOT_FOUND, "Plan not found", 404);
     const row = await repo.update(id, input);
@@ -101,7 +127,21 @@ export class PlansService {
       await repo.clearOtherDefaults(id);
     }
     invalidatePlanCache();
-    return toDTO(row);
+    let updatedBy: PlanEditorDTO | null = null;
+    if (row.updatedById) {
+      const user = await prisma.user.findUnique({
+        where: { id: row.updatedById },
+        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
+      });
+      if (user) {
+        const name =
+          user.displayName?.trim() ||
+          [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+          user.email;
+        updatedBy = { id: user.id, name, email: user.email };
+      }
+    }
+    return toDTO(row, updatedBy);
   }
 
   /** Soft delete: set isActive = false. Fails if any agency uses this plan. */

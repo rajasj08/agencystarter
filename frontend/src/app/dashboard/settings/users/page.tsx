@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { AppCard } from "@/components/design";
 import { UserManagementSettingsForm } from "@/modules/settings/components/UserManagementSettingsForm";
 import { getSettings, updateSettings } from "@/modules/settings/services/settingsService";
 import type { AgencySettings } from "@/modules/settings/types/settingsTypes";
@@ -34,18 +33,14 @@ export default function SettingsUsersPage() {
   if (loading) {
     return (
       <PageContainer title="User management settings">
-        <AppCard className="rounded-xl p-6">
-          <p className="text-text-secondary">Loading…</p>
-        </AppCard>
+        <p className="text-text-secondary">Loading…</p>
       </PageContainer>
     );
   }
 
   return (
     <PageContainer title="User management settings">
-      <AppCard className="rounded-xl p-6">
-        <UserManagementSettingsForm initialData={settings} onSubmit={handleSubmit} loading={saving} />
-      </AppCard>
+      <UserManagementSettingsForm initialData={settings} onSubmit={handleSubmit} loading={saving} />
     </PageContainer>
   );
 }

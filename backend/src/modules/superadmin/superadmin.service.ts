@@ -23,10 +23,12 @@ import type {
 import { PAGINATION, clampLimit, clampPage } from "../../constants/pagination.js";
 import { UserService } from "../users/user.service.js";
 import { RoleRepository } from "../roles/role.repository.js";
+import { RolesService } from "../roles/roles.service.js";
 
 const systemSettingsRepo = new SuperadminSystemSettingsRepository(prisma);
 const authService = new AuthService();
 const userService = new UserService();
+const rolesService = new RolesService();
 const roleRepo = new RoleRepository(prisma);
 
 export interface SystemSettingsDTO {
@@ -40,6 +42,12 @@ export interface SystemSettingsDTO {
   maintenanceMode: boolean;
 }
 
+export interface AgencyEditorDTO {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface AgencyListItemDTO {
   id: string;
   name: string;
@@ -48,6 +56,8 @@ export interface AgencyListItemDTO {
   planName: string | null;
   planCode: string | null;
   createdAt: Date;
+  updatedAt: Date;
+  updatedBy: AgencyEditorDTO | null;
   userCount?: number;
 }
 
@@ -150,6 +160,8 @@ export class SuperadminService {
       planName: a.plan?.name ?? null,
       planCode: a.plan?.code ?? null,
       createdAt: a.createdAt,
+      updatedAt: a.updatedAt,
+      updatedBy: null,
       userCount: a._count.users,
     }));
     return { data, total };
@@ -161,6 +173,20 @@ export class SuperadminService {
       include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
     });
     if (!agency) return null;
+    let updatedBy: AgencyEditorDTO | null = null;
+    if (agency.updatedById) {
+      const user = await prisma.user.findUnique({
+        where: { id: agency.updatedById },
+        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
+      });
+      if (user) {
+        const name =
+          user.displayName?.trim() ||
+          [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+          user.email;
+        updatedBy = { id: user.id, name, email: user.email };
+      }
+    }
     return {
       id: agency.id,
       name: agency.name,
@@ -169,6 +195,8 @@ export class SuperadminService {
       planName: agency.plan?.name ?? null,
       planCode: agency.plan?.code ?? null,
       createdAt: agency.createdAt,
+      updatedAt: agency.updatedAt,
+      updatedBy,
       userCount: agency._count.users,
     };
   }
@@ -186,8 +214,6 @@ export class SuperadminService {
     if (!plan) throw new AppError(ERROR_CODES.PLAN_NOT_FOUND, "Plan not found", 404);
     if (!plan.isActive) throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Plan is not active", 403);
 
-    const roleAgencyAdmin = await roleRepo.findSystemRoleByName(ROLES.AGENCY_ADMIN);
-    if (!roleAgencyAdmin) throw new AppError(ERROR_CODES.INTERNAL_ERROR, "System role AGENCY_ADMIN not found. Run seed.", 500);
     const passwordHash = await bcrypt.hash(input.adminPassword, 12);
     const agency = await prisma.agency.create({
       data: {
@@ -198,12 +224,13 @@ export class SuperadminService {
       },
       include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
     });
+    const { roleAgencyAdminId } = await rolesService.ensureAgencyRoles(agency.id);
     await prisma.user.create({
       data: {
         email: input.adminEmail.toLowerCase(),
         passwordHash,
         displayName: input.adminName ?? null,
-        roleId: roleAgencyAdmin.id,
+        roleId: roleAgencyAdminId,
         status: "ACTIVE",
         agencyId: agency.id,
       },
@@ -224,6 +251,8 @@ export class SuperadminService {
       planName: agency.plan?.name ?? null,
       planCode: agency.plan?.code ?? null,
       createdAt: agency.createdAt,
+      updatedAt: agency.updatedAt,
+      updatedBy: null,
       userCount: agency._count.users,
     };
   }
@@ -247,6 +276,7 @@ export class SuperadminService {
         ...(input.name !== undefined && { name: input.name }),
         ...(input.planId !== undefined && { planId: input.planId }),
         ...(input.status !== undefined && { status: input.status }),
+        updatedById: req.user!.userId,
       },
       include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
     });
@@ -258,6 +288,20 @@ export class SuperadminService {
       details: { action: "AGENCY_UPDATE", agencyName: updated.name, input: input as Record<string, unknown> },
     });
 
+    let updatedBy: AgencyEditorDTO | null = null;
+    if (updated.updatedById) {
+      const user = await prisma.user.findUnique({
+        where: { id: updated.updatedById },
+        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
+      });
+      if (user) {
+        const name =
+          user.displayName?.trim() ||
+          [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+          user.email;
+        updatedBy = { id: user.id, name, email: user.email };
+      }
+    }
     return {
       id: updated.id,
       name: updated.name,
@@ -266,6 +310,8 @@ export class SuperadminService {
       planName: updated.plan?.name ?? null,
       planCode: updated.plan?.code ?? null,
       createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+      updatedBy,
       userCount: updated._count.users,
     };
   }
@@ -281,7 +327,7 @@ export class SuperadminService {
     if (!plan.isActive) throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Plan is not active", 403);
     const updated = await prisma.agency.update({
       where: { id: agencyId },
-      data: { planId: input.planId },
+      data: { planId: input.planId, updatedById: req.user!.userId },
       include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
     });
     await audit(req, {
@@ -290,6 +336,20 @@ export class SuperadminService {
       resourceId: agencyId,
       details: { action: "AGENCY_PLAN_CHANGE", planId: input.planId, planCode: plan.code },
     });
+    let updatedBy: AgencyEditorDTO | null = null;
+    if (updated.updatedById) {
+      const user = await prisma.user.findUnique({
+        where: { id: updated.updatedById },
+        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
+      });
+      if (user) {
+        const name =
+          user.displayName?.trim() ||
+          [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+          user.email;
+        updatedBy = { id: user.id, name, email: user.email };
+      }
+    }
     return {
       id: updated.id,
       name: updated.name,
@@ -298,6 +358,8 @@ export class SuperadminService {
       planName: updated.plan?.name ?? null,
       planCode: updated.plan?.code ?? null,
       createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+      updatedBy,
       userCount: updated._count.users,
     };
   }
@@ -335,7 +397,7 @@ export class SuperadminService {
     }
     const updated = await prisma.agency.update({
       where: { id: agencyId },
-      data: { status },
+      data: { status, updatedById: req.user!.userId },
       include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
     });
     await audit(req, {
@@ -344,6 +406,20 @@ export class SuperadminService {
       resourceId: agencyId,
       details: { previousStatus: agency.status, newStatus: status, agencyName: agency.name },
     });
+    let updatedBy: AgencyEditorDTO | null = null;
+    if (updated.updatedById) {
+      const user = await prisma.user.findUnique({
+        where: { id: updated.updatedById },
+        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
+      });
+      if (user) {
+        const name =
+          user.displayName?.trim() ||
+          [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+          user.email;
+        updatedBy = { id: user.id, name, email: user.email };
+      }
+    }
     return {
       id: updated.id,
       name: updated.name,
@@ -352,6 +428,8 @@ export class SuperadminService {
       planName: updated.plan?.name ?? null,
       planCode: updated.plan?.code ?? null,
       createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+      updatedBy,
       userCount: updated._count.users,
     };
   }
@@ -559,6 +637,9 @@ export class SuperadminService {
   }
 
   async disableUser(req: AuthRequest, userId: string): Promise<PlatformUserDetailDTO> {
+    if (userId === req.user!.userId) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "You cannot disable your own account", 403);
+    }
     const user = await prisma.user.findFirst({ where: { id: userId, deletedAt: null }, include: { agency: { select: { name: true } }, roleRef: { select: { name: true } } } });
     if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
@@ -596,8 +677,8 @@ export class SuperadminService {
     if (user.agencyId == null) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Only agency users can have role changed", 403);
     }
-    const role = await roleRepo.findSystemRoleByName(input.role);
-    if (!role) throw new AppError(ERROR_CODES.INTERNAL_ERROR, `System role ${input.role} not found. Run seed.`, 500);
+    const role = await roleRepo.findRoleByNameAndAgency(user.agencyId, input.role);
+    if (!role) throw new AppError(ERROR_CODES.INTERNAL_ERROR, `Role ${input.role} not found for this agency.`, 500);
     await prisma.user.update({ where: { id: userId }, data: { roleId: role.id } });
     const updated = await this.getUserById(userId);
     return updated!;

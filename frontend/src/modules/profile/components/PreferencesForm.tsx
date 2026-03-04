@@ -62,7 +62,7 @@ export function PreferencesForm({ preferences, onSubmit, loading = false }: Pref
       <p className="text-sm text-text-secondary mb-6">
         Language and timezone for your account.
       </p>
-      <FormProviderWrapper form={form as never} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <FormProviderWrapper form={form as never} onSubmit={onSubmit} className="space-y-4">
         <FormSelect name="language" label="Language" options={languageOptions} />
         <FormSelect name="timezone" label="Timezone" options={timezoneOptions} />
         <AppButton type="submit" loading={loading} disabled={loading}>

@@ -14,14 +14,15 @@ export default function DashboardRootLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, accessToken, hydrate } = useAuthStore();
+  const { user, accessToken, hydrated, hydrate } = useAuthStore();
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
 
   useEffect(() => {
-    if (accessToken === null && typeof window !== "undefined") {
+    if (!hydrated || typeof window === "undefined") return;
+    if (accessToken === null) {
       router.replace(ROUTES.LOGIN);
       return;
     }
@@ -33,9 +34,9 @@ export default function DashboardRootLayout({
     if (!user.agencyId || (user.agency && !user.agency.onboardingCompleted)) {
       router.replace(ROUTES.ONBOARDING);
     }
-  }, [user, accessToken, router]);
+  }, [user, accessToken, hydrated, router]);
 
-  if (!user && !accessToken) {
+  if (!hydrated || (!user && !accessToken)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-text-secondary">Loading…</p>

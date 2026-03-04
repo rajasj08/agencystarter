@@ -16,18 +16,18 @@ export default function OnboardingLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, accessToken, hydrate } = useAuthStore();
+  const { user, accessToken, hydrated, hydrate } = useAuthStore();
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
 
   useEffect(() => {
-    if (!accessToken || !user) return;
+    if (!hydrated || !accessToken || !user) return;
     if (user.role === ROLES.SUPER_ADMIN) {
       router.replace(ROUTES.SUPERADMIN);
     }
-  }, [user, accessToken, router]);
+  }, [user, accessToken, hydrated, router]);
 
   return <>{children}</>;
 }

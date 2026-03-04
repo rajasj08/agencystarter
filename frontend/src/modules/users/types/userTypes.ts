@@ -11,6 +11,12 @@ export interface UserAgencyRef {
   onboardingCompleted: boolean;
 }
 
+export interface UserEditorRef {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -23,6 +29,7 @@ export interface User {
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
+  updatedBy: UserEditorRef | null;
 }
 
 export interface UserCreateInput {

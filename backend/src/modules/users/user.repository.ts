@@ -2,6 +2,9 @@ import type { PrismaClient, UserStatus } from "@prisma/client";
 import { BaseRepository } from "../../core/BaseRepository.js";
 import { tenantScope } from "../../lib/tenant.js";
 
+/** Prisma client or transaction client (has same model delegates). */
+type PrismaClientLike = Pick<PrismaClient, "user">;
+
 export class UserRepository extends BaseRepository {
   constructor(client: PrismaClient) {
     super(client);
@@ -10,7 +13,11 @@ export class UserRepository extends BaseRepository {
   async findByIdAndAgency(id: string, agencyId: string) {
     return this.prisma.user.findFirst({
       where: { id, ...this.activeOnly(), ...tenantScope(agencyId) },
-      include: { agency: true, roleRef: { select: { id: true, name: true } } },
+      include: {
+        agency: true,
+        roleRef: { select: { id: true, name: true } },
+        updatedBy: { select: { id: true, email: true, displayName: true, firstName: true, lastName: true } },
+      },
     });
   }
 
@@ -65,11 +72,17 @@ export class UserRepository extends BaseRepository {
   async update(
     id: string,
     agencyId: string,
-    data: { displayName?: string | null; roleId?: string; status?: UserStatus }
+    data: { displayName?: string | null; roleId?: string; status?: UserStatus; updatedById?: string | null },
+    tx?: PrismaClientLike
   ) {
-    const { roleId, ...rest } = data;
-    const updateData = { ...rest, ...(roleId !== undefined && { roleId }) };
-    return this.prisma.user.updateMany({
+    const client = (tx ?? this.prisma) as PrismaClient;
+    const { roleId, updatedById, ...rest } = data;
+    const updateData = {
+      ...rest,
+      ...(roleId !== undefined && { roleId }),
+      ...(updatedById !== undefined && { updatedById }),
+    };
+    return client.user.updateMany({
       where: { id, ...tenantScope(agencyId) },
       data: updateData,
     });
@@ -82,17 +95,34 @@ export class UserRepository extends BaseRepository {
     });
   }
 
-  async softDelete(id: string, agencyId: string) {
-    return this.prisma.user.updateMany({
+  async softDelete(id: string, agencyId: string, tx?: PrismaClientLike) {
+    const client = (tx ?? this.prisma) as PrismaClient;
+    return client.user.updateMany({
       where: { id, ...tenantScope(agencyId) },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: new Date(), status: "DISABLED" as UserStatus },
+    });
+  }
+
+  /** Count active users in agency with role AGENCY_ADMIN (for last-admin protection). */
+  async countAgencyAdmins(agencyId: string, tx?: PrismaClientLike): Promise<number> {
+    const client = (tx ?? this.prisma) as PrismaClient;
+    return client.user.count({
+      where: {
+        ...this.activeOnly(),
+        ...tenantScope(agencyId),
+        roleRef: { name: "AGENCY_ADMIN" },
+      },
     });
   }
 
   async getByIdForUpdate(id: string, agencyId: string) {
     return this.prisma.user.findFirst({
       where: { id, ...this.activeOnly(), ...tenantScope(agencyId) },
-      include: { agency: true, roleRef: { select: { id: true, name: true } } },
+      include: {
+        agency: true,
+        roleRef: { select: { id: true, name: true } },
+        updatedBy: { select: { id: true, email: true, displayName: true, firstName: true, lastName: true } },
+      },
     });
   }
 }

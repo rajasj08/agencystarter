@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { BaseController } from "../../core/BaseController.js";
 import { RESPONSE_CODES } from "../../constants/responseCodes.js";
 import { AgencyService } from "./agency.service.js";
-import { createAgencySchema } from "./agency.validation.js";
+import { createAgencySchema, updateAgencyTenantSchema } from "./agency.validation.js";
 import type { AuthRequest } from "../../middleware/auth.js";
 import { audit } from "../../lib/audit.js";
 
@@ -16,15 +16,30 @@ export class AgencyController extends BaseController {
       return;
     }
     const userId = req.user!.userId;
-    const data = await agencyService.create(parsed.data, userId);
+    const callerRole = req.user?.role ?? null;
+    const data = await agencyService.create(parsed.data, userId, callerRole);
     await audit(req, { action: "agency.created", resource: "agency", resourceId: data.id, details: { name: data.name, slug: data.slug } });
     this.created(res, data, "Agency created");
   };
 
-  getById = async (req: Request, res: Response): Promise<void> => {
+  getById = async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = this.getParams(req);
-    const data = await agencyService.getById(id);
+    const callerAgencyId = req.user?.agencyId ?? null;
+    const callerRole = req.user?.role ?? null;
+    const data = await agencyService.getById(id, callerAgencyId, callerRole);
     this.success(res, data, RESPONSE_CODES.FETCHED);
+  };
+
+  updateTenant = async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = this.getParams(req);
+    const parsed = updateAgencyTenantSchema.safeParse(this.getBody(req));
+    if (!parsed.success) {
+      this.fail(res, "VALIDATION_ERROR", "Validation failed", 400, parsed.error.flatten().fieldErrors as Record<string, unknown>);
+      return;
+    }
+    const callerAgencyId = req.user!.agencyId!;
+    const data = await agencyService.updateTenant(id, callerAgencyId, parsed.data as Record<string, unknown>);
+    this.success(res, data, RESPONSE_CODES.UPDATED);
   };
 
   list = async (_req: Request, res: Response): Promise<void> => {

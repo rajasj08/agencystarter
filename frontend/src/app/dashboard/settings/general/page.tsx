@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { AppCard } from "@/components/design";
 import { GeneralSettingsForm } from "@/modules/settings/components/GeneralSettingsForm";
 import { getSettings, updateSettings } from "@/modules/settings/services/settingsService";
 import type { AgencySettings } from "@/modules/settings/types/settingsTypes";
@@ -38,18 +37,14 @@ export default function SettingsGeneralPage() {
   if (loading) {
     return (
       <PageContainer title="General settings">
-        <AppCard className="rounded-xl p-6">
-          <p className="text-text-secondary">Loading…</p>
-        </AppCard>
+        <p className="text-text-secondary">Loading…</p>
       </PageContainer>
     );
   }
 
   return (
     <PageContainer title="General settings">
-      <AppCard className="rounded-xl p-6">
-        <GeneralSettingsForm initialData={settings} onSubmit={handleSubmit} loading={saving} />
-      </AppCard>
+      <GeneralSettingsForm initialData={settings} onSubmit={handleSubmit} loading={saving} />
     </PageContainer>
   );
 }

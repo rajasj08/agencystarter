@@ -53,7 +53,10 @@ export class PlansController extends BaseController {
       );
       return;
     }
-    const data = await service.update(id, parsed.data);
+    const data = await service.update(id, {
+      ...parsed.data,
+      updatedById: req.user!.userId,
+    });
     this.success(res, data, RESPONSE_CODES.UPDATED, "Plan updated");
   };
 

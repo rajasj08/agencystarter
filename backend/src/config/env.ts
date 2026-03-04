@@ -40,7 +40,7 @@ export const env = {
 
   // Rate limit (global for API; auth routes use stricter limit)
   RATE_LIMIT_WINDOW_MS: parseInt(optional("RATE_LIMIT_WINDOW_MS", "900000"), 10),
-  RATE_LIMIT_MAX: parseInt(optional("RATE_LIMIT_MAX", "100"), 10),
+  RATE_LIMIT_MAX: parseInt(optional("RATE_LIMIT_MAX", "300"), 10),
   RATE_LIMIT_AUTH_WINDOW_MS: parseInt(optional("RATE_LIMIT_AUTH_WINDOW_MS", "60000"), 10),
   RATE_LIMIT_AUTH_MAX: parseInt(optional("RATE_LIMIT_AUTH_MAX", "10"), 10),
 

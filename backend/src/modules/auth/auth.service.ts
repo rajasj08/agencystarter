@@ -75,11 +75,17 @@ export class AuthService extends BaseService {
     if (!user) {
       throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Invalid email or password", 401);
     }
+    if (user.deletedAt) {
+      throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Invalid email or password", 401);
+    }
     if (user.status === "DISABLED") {
       throw new AppError(ERROR_CODES.AUTH_USER_DISABLED, "Account is disabled", 403);
     }
     if (user.status === "SUSPENDED") {
       throw new AppError(ERROR_CODES.AUTH_USER_DISABLED, "Account is suspended", 403);
+    }
+    if (user.status === "INVITED") {
+      throw new AppError(ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED, "Please set your password using the invitation link to sign in", 403);
     }
     if (user.status !== "ACTIVE") {
       throw new AppError(ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED, "Please verify your email to sign in", 403);
@@ -89,6 +95,13 @@ export class AuthService extends BaseService {
       throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Invalid email or password", 401);
     }
     await authRepo.updateLastLoginAt(user.id);
+    const { auditLogin } = await import("../../lib/audit.js");
+    await auditLogin({
+      userId: user.id,
+      agencyId: user.agencyId,
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    });
     const refreshToken = this.createRefreshToken();
     const refreshTokenHash = this.hashRefreshToken(refreshToken);
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS);
@@ -236,8 +249,17 @@ export class AuthService extends BaseService {
       throw new AppError(ERROR_CODES.PASSWORD_RESET_EXPIRED, "Invalid or expired reset link", 400);
     }
     const passwordHash = await bcrypt.hash(input.password, 12);
-    await authRepo.updatePassword(reset.userId, passwordHash);
-    await authRepo.deletePasswordResetsByUserId(reset.userId);
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: reset.userId },
+        data: { passwordHash },
+      });
+      await tx.user.updateMany({
+        where: { id: reset.userId, status: "INVITED" },
+        data: { emailVerifiedAt: new Date(), status: "ACTIVE" as UserStatus },
+      });
+      await tx.passwordReset.deleteMany({ where: { userId: reset.userId } });
+    });
     return { message: "Password has been reset" };
   }
 

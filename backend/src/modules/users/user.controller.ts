@@ -2,11 +2,13 @@ import type { Response } from "express";
 import { BaseController } from "../../core/BaseController.js";
 import { RESPONSE_CODES } from "../../constants/responseCodes.js";
 import { UserService } from "./user.service.js";
+import { RolesService } from "../roles/roles.service.js";
 import { createUserSchema, updateUserSchema } from "./user.validation.js";
 import type { AuthRequest } from "../../middleware/auth.js";
 import { audit } from "../../lib/audit.js";
 
 const userService = new UserService();
+const rolesService = new RolesService();
 
 export class UserController extends BaseController {
   list = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -30,12 +32,16 @@ export class UserController extends BaseController {
       return;
     }
     const agencyId = req.user!.agencyId!;
-    const data = await userService.create(agencyId, parsed.data);
+    const roleId = req.user!.roleId;
+    const currentUserPermissionIds =
+      roleId != null ? await rolesService.getPermissionIdsForRole(roleId) : undefined;
+    const data = await userService.create(agencyId, parsed.data, { currentUserPermissionIds });
     await audit(req, {
       action: parsed.data.invite ? "user.invited" : "user.created",
       resource: "user",
       resourceId: data.id,
-      details: { email: data.email, role: data.role },
+      targetUserId: data.id,
+      details: { email: data.email, role: data.role, changedByUserId: req.user!.userId },
     });
     this.created(res, data, parsed.data.invite ? "Invitation sent" : "User created");
   };
@@ -48,16 +54,54 @@ export class UserController extends BaseController {
     }
     const { id } = this.getParams(req);
     const agencyId = req.user!.agencyId!;
-    const data = await userService.update(agencyId, id, parsed.data);
-    await audit(req, { action: "user.updated", resource: "user", resourceId: id, details: parsed.data });
+    const existing = await userService.getById(agencyId, id);
+    const roleId = req.user!.roleId;
+    const currentUserPermissionIds =
+      roleId != null ? await rolesService.getPermissionIdsForRole(roleId) : undefined;
+    const data = await userService.update(agencyId, id, parsed.data, {
+      currentUserPermissionIds,
+      currentUserId: req.user!.userId,
+      updatedById: req.user!.userId,
+    });
+    const action =
+      parsed.data.role !== undefined && parsed.data.role !== existing.role
+        ? "user.role.changed"
+        : parsed.data.status !== undefined && parsed.data.status !== existing.status
+          ? "user.status.changed"
+          : "user.updated";
+    const details: Record<string, unknown> = {
+      ...parsed.data,
+      changedByUserId: req.user!.userId,
+    };
+    if (parsed.data.role !== undefined && parsed.data.role !== existing.role) {
+      details.previousRole = existing.role;
+      details.newRole = data.role;
+    }
+    if (parsed.data.status !== undefined && parsed.data.status !== existing.status) {
+      details.previousStatus = existing.status;
+      details.newStatus = data.status;
+    }
+    await audit(req, {
+      action,
+      resource: "user",
+      resourceId: id,
+      targetUserId: id,
+      details,
+    });
     this.success(res, data, RESPONSE_CODES.UPDATED, "User updated");
   };
 
   delete = async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = this.getParams(req);
     const agencyId = req.user!.agencyId!;
-    await userService.delete(agencyId, id);
-    await audit(req, { action: "user.deleted", resource: "user", resourceId: id });
+    await userService.delete(agencyId, id, { currentUserId: req.user!.userId });
+    await audit(req, {
+      action: "user.deleted",
+      resource: "user",
+      resourceId: id,
+      targetUserId: id,
+      details: { changedByUserId: req.user!.userId, softDelete: true },
+    });
     this.success(res, null, RESPONSE_CODES.DELETED, "User deleted");
   };
 

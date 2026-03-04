@@ -4,9 +4,10 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormProviderWrapper } from "@/components/forms";
-import { FormSelect, FormCheckbox } from "@/components/forms";
-import { AppButton } from "@/components/design";
+import { FormSelect } from "@/components/forms";
+import { AppButton, ToggleSwitch } from "@/components/design";
 import type { AgencySettings } from "../types/settingsTypes";
 
 const schema = z.object({
@@ -53,34 +54,46 @@ export function UserManagementSettingsForm({ initialData, onSubmit, loading = fa
   }, [initialData]);
 
   return (
-    <FormProviderWrapper form={form as never} onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-      <h2 className="text-lg font-medium text-text-primary">User Management Settings</h2>
-      <div className="space-y-4">
-        <FormCheckbox
-          name="allowSelfRegistration"
-          label="Allow self registration"
-          helperText="Let users sign up without an invitation."
-        />
-        <FormSelect
-          name="defaultUserRole"
-          label="Default user role"
-          options={roleOptions}
-          helperText="Role assigned to new users (e.g. self-registered or invited)."
-        />
-        <FormCheckbox
-          name="requireAdminApproval"
-          label="Require admin approval"
-          helperText="New users must be approved by an admin before they can sign in."
-        />
-        <FormCheckbox
-          name="allowUserInvitations"
-          label="Allow user invitations"
-          helperText="Admins can invite users by email."
-        />
-      </div>
-      <AppButton type="submit" loading={loading} disabled={loading}>
-        Save user management settings
-      </AppButton>
-    </FormProviderWrapper>
+    <div className="max-w-[50%]">
+      <FormProviderWrapper form={form as never} onSubmit={onSubmit} className="space-y-6">
+        <Card className="rounded-2xl border border-border p-6 shadow-sm">
+          <CardHeader className="border-0 p-0 pb-4">
+            <CardTitle className="text-base font-medium">User Management Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-0">
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
+            <div>
+              <span className="text-sm font-medium text-text-primary">Allow self registration</span>
+              <p className="text-xs text-text-secondary">Let users sign up without an invitation.</p>
+            </div>
+            <ToggleSwitch id="allowSelfRegistration" {...form.register("allowSelfRegistration")} />
+          </div>
+          <FormSelect
+            name="defaultUserRole"
+            label="Default user role"
+            options={roleOptions}
+            helperText="Role assigned to new users (e.g. self-registered or invited)."
+          />
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
+            <div>
+              <span className="text-sm font-medium text-text-primary">Require admin approval</span>
+              <p className="text-xs text-text-secondary">New users must be approved by an admin before they can sign in.</p>
+            </div>
+            <ToggleSwitch id="requireAdminApproval" {...form.register("requireAdminApproval")} />
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
+            <div>
+              <span className="text-sm font-medium text-text-primary">Allow user invitations</span>
+              <p className="text-xs text-text-secondary">Admins can invite users by email.</p>
+            </div>
+            <ToggleSwitch id="allowUserInvitations" {...form.register("allowUserInvitations")} />
+          </div>
+          </CardContent>
+        </Card>
+        <AppButton type="submit" loading={loading} disabled={loading}>
+          Save user management settings
+        </AppButton>
+      </FormProviderWrapper>
+    </div>
   );
 }

@@ -1,12 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { seedRbac } from "./seed-rbac.js";
+import { seedRbac, createAgencyRoles } from "./seed-rbac.js";
 import { seedPlans } from "./seed-plans.js";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const { roleSuperAdmin, roleAgencyAdmin } = await seedRbac();
+  const { roleSuperAdmin } = await seedRbac();
   const { freePlanId } = await seedPlans();
 
   const passwordHash = await bcrypt.hash("SeedPassword1!", 12);
@@ -21,6 +21,8 @@ async function main() {
       onboardingCompleted: true,
     },
   });
+
+  const { roleAgencyAdmin } = await createAgencyRoles(prisma, agency.id);
 
   await prisma.user.upsert({
     where: { email: "admin@demo.com" },

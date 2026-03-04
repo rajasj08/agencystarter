@@ -2,7 +2,7 @@ import { ROLES } from "../../constants/roles.js";
 import { prisma } from "../../lib/prisma.js";
 import { BaseService } from "../../core/BaseService.js";
 import { AgencyRepository } from "./agency.repository.js";
-import { RoleRepository } from "../roles/role.repository.js";
+import { RolesService } from "../roles/roles.service.js";
 import { AppError } from "../../errors/AppError.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
 import { get as getSystemConfig } from "../../services/SystemConfigCache.js";
@@ -10,17 +10,12 @@ import { getPlanByCodeCached, getPlansCached } from "../../services/PlanCache.js
 import type { CreateAgencyInput } from "./agency.validation.js";
 
 const agencyRepo = new AgencyRepository(prisma);
-const roleRepo = new RoleRepository(prisma);
+const rolesService = new RolesService();
 
 export class AgencyService extends BaseService {
-  async create(input: CreateAgencyInput, userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true, roleRef: { select: { name: true } } },
-    });
-    const roleName = user?.roleRef?.name ?? user?.role;
-    if (roleName === ROLES.SUPER_ADMIN) {
-      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot create an agency", 403);
+  async create(input: CreateAgencyInput, userId: string, callerRole?: string | null) {
+    if (callerRole === ROLES.SUPER_ADMIN) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot create an agency via onboarding", 403);
     }
     const config = getSystemConfig();
     if (!config.allowAgencyRegistration) {
@@ -33,18 +28,20 @@ export class AgencyService extends BaseService {
     await getPlansCached();
     const freePlan = getPlanByCodeCached("FREE");
     const planId = freePlan?.id ?? null;
-    const roleAgencyAdmin = await roleRepo.findSystemRoleByName(ROLES.AGENCY_ADMIN);
-    if (!roleAgencyAdmin) throw new AppError(ERROR_CODES.INTERNAL_ERROR, "System role AGENCY_ADMIN not found. Run seed.", 500);
     const agency = await agencyRepo.create({ ...input, planId });
+    const { roleAgencyAdminId } = await rolesService.ensureAgencyRoles(agency.id);
     await prisma.user.update({
       where: { id: userId },
-      data: { agencyId: agency.id, roleId: roleAgencyAdmin.id },
+      data: { agencyId: agency.id, roleId: roleAgencyAdminId },
     });
     await agencyRepo.setOnboardingCompleted(agency.id);
     return agency;
   }
 
-  async getById(id: string) {
+  async getById(id: string, callerAgencyId?: string | null, callerRole?: string | null) {
+    if (callerRole !== ROLES.SUPER_ADMIN && callerAgencyId != null && id !== callerAgencyId) {
+      throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
+    }
     const agency = await agencyRepo.findById(id);
     if (!agency) {
       throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
@@ -54,5 +51,23 @@ export class AgencyService extends BaseService {
 
   async list() {
     return agencyRepo.list();
+  }
+
+  /** Tenant-level update: only allowed fields (name, logo, contact, etc.). */
+  async updateTenant(agencyId: string, callerAgencyId: string, input: Record<string, unknown>) {
+    if (agencyId !== callerAgencyId) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "You can only update your own agency", 403);
+    }
+    const { AGENCY_TENANT_UPDATE_FIELDS } = await import("../../constants/permissions.js");
+    const allowed = new Set(AGENCY_TENANT_UPDATE_FIELDS);
+    const data: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(input)) {
+      if (allowed.has(key as (typeof AGENCY_TENANT_UPDATE_FIELDS)[number])) {
+        data[key] = value === "" ? null : value;
+      }
+    }
+    if (Object.keys(data).length === 0) return agencyRepo.findById(agencyId)!;
+    await agencyRepo.updatePartial(agencyId, data);
+    return agencyRepo.findById(agencyId)!;
   }
 }

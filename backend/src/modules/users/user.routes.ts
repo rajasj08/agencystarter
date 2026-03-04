@@ -9,6 +9,7 @@ import { UserController } from "./user.controller.js";
 const router = Router();
 const controller = new UserController();
 
+// Order: auth → tenant → permission (scoping before permission check).
 router.use(authMiddleware);
 router.use(requireTenant);
 

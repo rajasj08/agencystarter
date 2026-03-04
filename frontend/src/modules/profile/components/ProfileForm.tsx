@@ -26,7 +26,7 @@ export function ProfileForm({ initialName, onSubmit, loading = false }: ProfileF
   });
 
   return (
-    <FormProviderWrapper form={form as never} onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <FormProviderWrapper form={form as never} onSubmit={onSubmit} className="space-y-6">
       <FormInput name="name" label="Display name" />
       <AppButton type="submit" loading={loading} disabled={loading}>
         Save

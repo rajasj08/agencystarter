@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PageContainer } from "@/components/layout/PageContainer";
-import { AppCard, AppButton } from "@/components/design";
+import { AppButton } from "@/components/design";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormProviderWrapper, FormInput, FormPassword, FormRootError } from "@/components/forms";
 import { useAppForm } from "@/components/forms/useAppForm";
 import { z } from "zod";
@@ -69,62 +69,85 @@ export default function SuperadminAgencyCreatePage() {
   );
 
   return (
-    <PageContainer
-      title="Create Agency"
-      breadcrumbs={[
-        { label: "Superadmin", href: ROUTES.SUPERADMIN },
-        { label: "Agencies", href: ROUTES.SUPERADMIN_AGENCIES },
-        { label: "Create" },
-      ]}
-    >
-      <AppCard className="max-w-2xl rounded-xl p-6">
-        <p className="mb-6 text-sm text-text-secondary">
-          Creates the agency and an agency admin user.
-        </p>
-        <FormProviderWrapper form={form} onSubmit={handleSubmit} id="create-agency-form">
-          <FormRootError />
-            <FormInput name="name" label="Agency name" required />
-            <FormInput name="slug" label="Slug (lowercase, hyphens)" placeholder="my-agency" required />
-            <div>
-              <label className="mb-1 block text-sm font-medium text-text-primary">Plan</label>
-              <select
-                {...form.register("planId")}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary"
-                disabled={plansLoading}
-              >
-                <option value="">Select plan</option>
-                {plans.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.code})
-                  </option>
-                ))}
-              </select>
-              {form.formState.errors.planId && (
-                <p className="mt-1 text-sm text-red-600">{form.formState.errors.planId.message}</p>
-              )}
-            </div>
-            <FormInput name="adminEmail" label="Admin email" type="email" required />
-            <FormPassword name="adminPassword" label="Admin password" required />
-            <FormInput name="adminName" label="Admin display name (optional)" />
-            <div className="flex justify-end gap-2 pt-4">
-              <AppButton
-                type="button"
-                variant="outline"
-                onClick={() => router.push(ROUTES.SUPERADMIN_AGENCIES)}
-              >
-                Cancel
-              </AppButton>
-              <AppButton
-                form="create-agency-form"
-                type="submit"
-                loading={form.formState.isSubmitting}
-                disabled={plansLoading || plans.length === 0}
-              >
-                Create
-              </AppButton>
-            </div>
-        </FormProviderWrapper>
-      </AppCard>
-    </PageContainer>
+    <div className="mx-auto max-w-[1200px] px-6 py-6">
+      <FormProviderWrapper form={form} onSubmit={handleSubmit} id="create-agency-form">
+        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-text-primary">Create Agency</h1>
+            <p className="text-sm text-gray-500">Add a new agency and its admin user.</p>
+          </div>
+          <div className="flex gap-2">
+            <AppButton type="button" variant="outline" onClick={() => router.push(ROUTES.SUPERADMIN_AGENCIES)}>
+              Cancel
+            </AppButton>
+            <AppButton
+              form="create-agency-form"
+              type="submit"
+              loading={form.formState.isSubmitting}
+              disabled={plansLoading || plans.length === 0}
+            >
+              Save Agency
+            </AppButton>
+          </div>
+        </header>
+
+        <FormRootError />
+
+        <div className="grid grid-cols-1 gap-6">
+          <div className="space-y-6">
+            <Card className="rounded-2xl border border-border p-6 shadow-sm">
+              <CardHeader className="border-0 p-0 pb-4">
+                <CardTitle className="text-base font-medium">Agency Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 p-0">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormInput name="name" label="Agency name" required />
+                  <div>
+                    <FormInput name="slug" label="Slug" placeholder="my-agency" required />
+                    <p className="mt-1 text-xs text-gray-500">Use lowercase letters, numbers, and hyphens only for the slug.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-text-primary">Plan</label>
+                    <select
+                      {...form.register("planId")}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary"
+                      disabled={plansLoading}
+                    >
+                      <option value="">Select plan</option>
+                      {plans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.code})
+                        </option>
+                      ))}
+                    </select>
+                    {form.formState.errors.planId && (
+                      <p className="mt-1 text-sm text-red-600">{form.formState.errors.planId.message}</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border border-border p-6 shadow-sm">
+              <CardHeader className="border-0 p-0 pb-4">
+                <CardTitle className="text-base font-medium">Admin User</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 p-0">
+                <p className="text-xs text-gray-500">The first user for this agency (agency admin).</p>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormInput name="adminEmail" label="Admin email" type="email" required />
+                  <FormInput name="adminName" label="Admin display name (optional)" />
+                </div>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormPassword name="adminPassword" label="Admin password" required />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </FormProviderWrapper>
+    </div>
   );
 }

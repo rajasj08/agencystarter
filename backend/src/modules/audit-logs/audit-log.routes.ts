@@ -9,6 +9,7 @@ import { AuditLogController } from "./audit-log.controller.js";
 const router = Router();
 const controller = new AuditLogController();
 
+// Order: auth → tenant → permission.
 router.use(authMiddleware);
 router.use(requireTenant);
 

@@ -3,24 +3,43 @@ import type { PrismaClient } from "@prisma/client";
 export class RoleRepository {
   constructor(private prisma: PrismaClient) {}
 
+  /** Platform role only (SUPER_ADMIN). */
   findSystemRoleByName(name: string) {
     return this.prisma.role.findFirst({
       where: { name, agencyId: null, isSystem: true },
     });
   }
 
-  listPermissions() {
-    return this.prisma.permission.findMany({
-      orderBy: { key: "asc" },
-      select: { id: true, key: true, name: true, description: true, isSystem: true },
+  /** Tenant role: by name and agency (for user assignation). */
+  findRoleByNameAndAgency(agencyId: string, name: string) {
+    return this.prisma.role.findFirst({
+      where: { name, agencyId, isSystem: true },
     });
   }
 
-  /** System roles (agencyId null) plus agency-scoped roles for the given agencyId. */
+  /** Idempotent: get or create a built-in agency role (AGENCY_ADMIN, AGENCY_MEMBER, USER). */
+  async findOrCreateAgencyRole(agencyId: string, name: string) {
+    const existing = await this.prisma.role.findFirst({
+      where: { name, agencyId, isSystem: true },
+    });
+    if (existing) return existing;
+    return this.prisma.role.create({
+      data: { name, agencyId, isSystem: true },
+    });
+  }
+
+  listPermissions() {
+    return this.prisma.permission.findMany({
+      orderBy: { key: "asc" },
+      select: { id: true, key: true, name: true, description: true, isSystem: true, scope: true },
+    });
+  }
+
+  /** Tenant: roles for this agency only. Superadmin (agencyId null): only platform role(s). */
   listRolesForAgency(agencyId: string | null) {
     return this.prisma.role.findMany({
-      where: agencyId ? { OR: [{ agencyId: null }, { agencyId }] } : { agencyId: null },
-      orderBy: [{ agencyId: "asc" }, { name: "asc" }],
+      where: agencyId != null ? { agencyId } : { agencyId: null },
+      orderBy: { name: "asc" },
       include: {
         rolePermissions: { select: { permissionId: true } },
       },
@@ -30,7 +49,12 @@ export class RoleRepository {
   findRoleById(id: string) {
     return this.prisma.role.findUnique({
       where: { id },
-      include: { rolePermissions: { select: { permissionId: true } } },
+      include: {
+        rolePermissions: { select: { permissionId: true } },
+        updatedBy: {
+          select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
+        },
+      },
     });
   }
 
@@ -57,11 +81,19 @@ export class RoleRepository {
     return this.findRoleById(roleId)!;
   }
 
-  updateRole(id: string, data: { name?: string }) {
+  updateRole(id: string, data: { name?: string; updatedById?: string | null }) {
     return this.prisma.role.update({
       where: { id },
-      data: { ...(data.name !== undefined && { name: data.name }) },
-      include: { rolePermissions: { select: { permissionId: true } } },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.updatedById !== undefined && { updatedById: data.updatedById }),
+      },
+      include: {
+        rolePermissions: { select: { permissionId: true } },
+        updatedBy: {
+          select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
+        },
+      },
     });
   }
 

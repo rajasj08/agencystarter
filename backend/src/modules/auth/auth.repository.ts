@@ -63,6 +63,14 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
+  /** When an INVITED user sets password via reset link, mark verified and active so they can log in. */
+  activateInvitedUser(userId: string) {
+    return this.prisma.user.updateMany({
+      where: { id: userId, status: "INVITED" },
+      data: { emailVerifiedAt: new Date(), status: "ACTIVE" as UserStatus },
+    });
+  }
+
   updateProfile(
     userId: string,
     data: {

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormProviderWrapper } from "@/components/forms";
 import { FormInput, FormSelect } from "@/components/forms";
 import { AppButton } from "@/components/design";
@@ -111,40 +112,54 @@ export function GeneralSettingsForm({ initialData, onSubmit, loading = false }: 
   }, [initialData]);
 
   return (
-    <FormProviderWrapper form={form as never} onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-      <section>
-        <h2 className="text-lg font-medium text-text-primary mb-4">Agency Identity</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-          <FormInput name="name" label="Agency name" />
-          <FormInput name="slug" label="Agency slug" placeholder="my-agency" disabled  />
-          <FormInput name="logo" label="Logo URL" type="url" placeholder="https://..." />
-          <FormInput name="websiteUrl" label="Website URL" type="url" placeholder="https://..." />
-          <FormInput name="supportEmail" label="Support email" type="email" />
-          <FormInput name="supportPhone" label="Support phone" />
-        </div>
-      </section>
+    <FormProviderWrapper form={form as never} onSubmit={onSubmit} className="space-y-6">
+      <Card className="rounded-2xl border border-border p-6 shadow-sm">
+        <CardHeader className="border-0 p-0 pb-4">
+          <CardTitle className="text-base font-medium">Agency Identity</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormInput name="name" label="Agency name" />
+            <FormInput name="slug" label="Agency slug" placeholder="my-agency" disabled />
+            <FormInput name="logo" label="Logo URL" type="url" placeholder="https://..." />
+            <FormInput name="websiteUrl" label="Website URL" type="url" placeholder="https://..." />
+            <FormInput name="supportEmail" label="Support email" type="email" />
+            <FormInput name="supportPhone" label="Support phone" />
+          </div>
+        </CardContent>
+      </Card>
 
-      <section>
-        <h2 className="text-lg font-medium text-text-primary mb-4">Primary contact</h2>
-        <p className="text-sm text-text-secondary mb-4">Main contact person for this agency.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-          <FormInput name="contactFirstName" label="Contact first name" />
-          <FormInput name="contactLastName" label="Contact last name" />
-          <FormInput name="contactEmail" label="Contact email" type="email" />
-          <FormInput name="contactPhone" label="Contact phone" />
-        </div>
-      </section>
+      <Card className="rounded-2xl border border-border p-6 shadow-sm">
+        <CardHeader className="border-0 p-0 pb-4">
+          <CardTitle className="text-base font-medium">Primary contact</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <p className="mb-4 text-sm text-text-secondary">Main contact person for this agency.</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormInput name="contactFirstName" label="Contact first name" />
+            <FormInput name="contactLastName" label="Contact last name" />
+            <FormInput name="contactEmail" label="Contact email" type="email" />
+            <FormInput name="contactPhone" label="Contact phone" />
+          </div>
+        </CardContent>
+      </Card>
 
-      <section>
-        <h2 className="text-lg font-medium text-text-primary mb-4">Localization</h2>
-        <p className="text-sm text-text-secondary mb-4">Mandatory. Default timezone, language, date format and currency for the agency.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-          <FormSelect name="timezone" label="Timezone" options={timezoneOptions} />
-          <FormSelect name="defaultLanguage" label="Default language" options={languageOptions} />
-          <FormSelect name="dateFormat" label="Date format" options={dateFormatOptions} />
-          <FormSelect name="currency" label="Currency" options={currencyOptions} helperText="e.g. USD, AUD, INR" />
-        </div>
-      </section>
+      <Card className="rounded-2xl border border-border p-6 shadow-sm">
+        <CardHeader className="border-0 p-0 pb-4">
+          <CardTitle className="text-base font-medium">Localization</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <p className="mb-4 text-sm text-text-secondary">
+            Default timezone, language, date format and currency for the agency.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormSelect name="timezone" label="Timezone" options={timezoneOptions} />
+            <FormSelect name="defaultLanguage" label="Default language" options={languageOptions} />
+            <FormSelect name="dateFormat" label="Date format" options={dateFormatOptions} />
+            <FormSelect name="currency" label="Currency" options={currencyOptions} helperText="e.g. USD, AUD, INR" />
+          </div>
+        </CardContent>
+      </Card>
 
       <AppButton type="submit" loading={loading} disabled={loading}>
         Save general settings

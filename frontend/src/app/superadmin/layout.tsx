@@ -15,23 +15,24 @@ export default function SuperadminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, accessToken, hydrate } = useAuthStore();
+  const { user, accessToken, hydrated, hydrate } = useAuthStore();
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
 
   useEffect(() => {
-    if (accessToken === null && typeof window !== "undefined") {
+    if (!hydrated || typeof window === "undefined") return;
+    if (accessToken === null) {
       router.replace(ROUTES.LOGIN);
       return;
     }
     if (user && user.role !== ROLES.SUPER_ADMIN) {
       router.replace(ROUTES.DASHBOARD);
     }
-  }, [user, accessToken, router]);
+  }, [user, accessToken, hydrated, router]);
 
-  if (!user || user.role !== ROLES.SUPER_ADMIN) {
+  if (!hydrated || !user || user.role !== ROLES.SUPER_ADMIN) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-text-secondary">Loading…</p>

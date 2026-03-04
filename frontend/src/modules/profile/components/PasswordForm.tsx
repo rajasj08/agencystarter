@@ -61,7 +61,7 @@ export function PasswordForm({ onSuccess, onError }: PasswordFormProps) {
       <p className="text-sm text-text-secondary mb-6">
         Enter your current password and choose a new password. Use at least 8 characters.
       </p>
-      <FormProviderWrapper form={form as never} onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <FormProviderWrapper form={form as never} onSubmit={handleSubmit} className="space-y-6">
         <FormPassword
           name="currentPassword"
           label="Current password"

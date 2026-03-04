@@ -47,6 +47,7 @@ app.use(
     max: env.RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
+    message: { success: false, code: "RATE_LIMIT", message: "Too many requests, please try again later." },
   })
 );
 

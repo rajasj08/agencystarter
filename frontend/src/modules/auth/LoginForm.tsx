@@ -74,7 +74,7 @@ export function LoginForm() {
       <FormProviderWrapper
         form={form}
         id="login-form"
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={onSubmit}
       >
         <FormRootError />
         <FormInput name="email" label="auth.email" type="email" autoComplete="email" />

@@ -9,8 +9,20 @@ const rolesService = new RolesService();
 
 export class RolesController extends BaseController {
   listPermissions = async (req: AuthRequest, res: Response): Promise<void> => {
-    const data = await rolesService.listPermissions();
+    const callerRole = req.user?.role ?? null;
+    const data = await rolesService.listPermissions(callerRole);
     this.success(res, data, RESPONSE_CODES.FETCHED);
+  };
+
+  /** Returns current user's permission IDs (for UI to restrict assignable permissions). */
+  getMyPermissionIds = async (req: AuthRequest, res: Response): Promise<void> => {
+    const roleId = req.user?.roleId;
+    if (!roleId) {
+      this.success(res, [], RESPONSE_CODES.FETCHED);
+      return;
+    }
+    const ids = await rolesService.getPermissionIdsForRole(roleId);
+    this.success(res, ids, RESPONSE_CODES.FETCHED);
   };
 
   listRoles = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -37,7 +49,10 @@ export class RolesController extends BaseController {
       return;
     }
     const agencyId = req.user!.agencyId!;
-    const data = await rolesService.createRole(agencyId, parsed.data);
+    const roleId = req.user?.roleId ?? null;
+    const callerRole = req.user?.role ?? null;
+    const currentUserPermissionIds = roleId ? await rolesService.getPermissionIdsForRole(roleId) : undefined;
+    const data = await rolesService.createRole(agencyId, parsed.data, currentUserPermissionIds, callerRole, req);
     this.created(res, data, "Role created");
   };
 
@@ -49,7 +64,10 @@ export class RolesController extends BaseController {
     }
     const { id } = this.getParams(req);
     const agencyId = req.user!.agencyId!;
-    const data = await rolesService.updateRole(id, agencyId, parsed.data);
+    const roleId = req.user?.roleId ?? null;
+    const callerRole = req.user?.role ?? null;
+    const currentUserPermissionIds = roleId ? await rolesService.getPermissionIdsForRole(roleId) : undefined;
+    const data = await rolesService.updateRole(id, agencyId, parsed.data, currentUserPermissionIds, callerRole, req);
     this.success(res, data, RESPONSE_CODES.UPDATED);
   };
 

@@ -45,7 +45,7 @@ export function RoleForm({ mode, initialData, onSubmit, loading = false }: RoleF
   return (
     <FormProviderWrapper
       form={form as unknown as ReturnType<typeof useForm<FieldValues>>}
-      onSubmit={form.handleSubmit(onSubmit)}
+      onSubmit={onSubmit}
       className="space-y-6"
     >
       <FormInput name="name" label="Role name" />

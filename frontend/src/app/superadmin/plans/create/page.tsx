@@ -2,10 +2,11 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { AppCard, AppButton } from "@/components/design";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormProviderWrapper, FormInput, FormRootError } from "@/components/forms";
 import { useAppForm } from "@/components/forms/useAppForm";
+import { useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { setFormApiError } from "@/lib/formErrors";
 import { createPlan, type PlanCreateInput, PLAN_FEATURE_KEYS } from "@/services/superadmin";
@@ -89,94 +90,139 @@ export default function SuperadminPlanCreatePage() {
   );
 
   return (
-    <PageContainer
-      title="Create Plan"
-      breadcrumbs={[
-        { label: "Superadmin", href: ROUTES.SUPERADMIN },
-        { label: "Plans", href: ROUTES.SUPERADMIN_PLANS },
-        { label: "Create" },
-      ]}
-    >
-      <AppCard className="max-w-2xl rounded-xl p-6">
-        <p className="mb-6 text-sm text-text-secondary">
-          Define limits and pricing for a new plan.
-        </p>
-        <FormProviderWrapper form={form} onSubmit={handleSubmit} id="create-plan-form">
-          <FormRootError />
-            <FormInput name="name" label="Name" required />
-            <FormInput name="code" label="Code (e.g. FREE, STARTER)" required />
-            <FormInput name="description" label="Description" />
-            <FormInput name="price" label="Price" type="number" min={0} />
-            <FormInput name="maxUsers" label="Max users" type="number" min={-1} placeholder="-1 = unlimited" />
-            <FormInput name="maxLocations" label="Max locations" type="number" min={-1} placeholder="-1 = unlimited" />
-            <FormInput name="maxFacilities" label="Max facilities" type="number" min={-1} placeholder="-1 = unlimited" />
-            <FormInput name="maxEmployees" label="Max employees" type="number" min={-1} placeholder="-1 = unlimited" />
-            <div>
-              <label className="mb-1 block text-sm font-medium text-text-primary">Status</label>
-              <select
-                {...form.register("status")}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary"
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <span className="text-sm font-medium text-text-primary">Features</span>
-              <div className="flex flex-wrap gap-4">
-                {PLAN_FEATURE_KEYS.map((key) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <input
-                      id={`features.${key}`}
-                      type="checkbox"
-                      {...form.register(`features.${key}`)}
-                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                    />
-                    <label htmlFor={`features.${key}`} className="text-sm text-text-primary">
-                      {featureLabels[key] ?? key}
-                    </label>
+    <div className="mx-auto max-w-[1200px] px-6 py-6">
+      <FormProviderWrapper form={form} onSubmit={handleSubmit} id="create-plan-form">
+        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-text-primary">Create Plan</h1>
+            <p className="text-sm text-gray-500">Configure pricing, limits and features.</p>
+          </div>
+          <div className="flex gap-2">
+            <AppButton type="button" variant="outline" onClick={() => router.push(ROUTES.SUPERADMIN_PLANS)}>
+              Cancel
+            </AppButton>
+            <AppButton form="create-plan-form" type="submit" loading={form.formState.isSubmitting}>
+              Save Plan
+            </AppButton>
+          </div>
+        </header>
+
+        <FormRootError />
+
+        <div className="grid grid-cols-1 gap-6">
+          <div className="space-y-6">
+            <Card className="rounded-2xl border border-border p-6 shadow-sm">
+              <CardHeader className="border-0 p-0 pb-4">
+                <CardTitle className="text-base font-medium">Plan Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 p-0">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormInput name="name" label="Plan Name" required />
+                  <div>
+                    <FormInput name="code" label="Plan Code" required />
+                    <p className="mt-1 text-xs text-gray-500">Plan code cannot be changed after creation.</p>
                   </div>
-                ))}
-              </div>
+                </div>
+                <FormInput name="description" label="Description" />
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border border-border p-6 shadow-sm">
+              <CardHeader className="border-0 p-0 pb-4">
+                <CardTitle className="text-base font-medium">Pricing</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <FormInput name="price" label="Price" type="number" min={0} helperText="Set price to 0 for free plan." />
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border border-border p-6 shadow-sm">
+              <CardHeader className="border-0 p-0 pb-4">
+                <CardTitle className="text-base font-medium">Usage Limits</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <p className="mb-4 text-xs text-gray-500">Use -1 for unlimited.</p>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormInput name="maxUsers" label="Max Users" type="number" min={-1} />
+                  <FormInput name="maxEmployees" label="Max Employees" type="number" min={-1} />
+                  <FormInput name="maxLocations" label="Max Locations" type="number" min={-1} />
+                  <FormInput name="maxFacilities" label="Max Facilities" type="number" min={-1} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border border-border p-6 shadow-sm">
+              <CardHeader className="border-0 p-0 pb-4">
+                <CardTitle className="text-base font-medium">Enabled Features</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {PLAN_FEATURE_KEYS.map((key) => (
+                    <FeatureToggle key={key} name={`features.${key}`} label={featureLabels[key] ?? key} />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="max-w-md">
+              <Card className="rounded-2xl border border-border p-6 shadow-sm">
+                <CardHeader className="border-0 p-0 pb-4">
+                  <CardTitle className="text-base font-medium">Plan Status</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 p-0">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-text-primary">Status</label>
+                    <select
+                      {...form.register("status")}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary"
+                    >
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Inactive</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
+                    <label htmlFor="isDefault" className="cursor-pointer text-sm text-text-primary">
+                      Set as Default Plan
+                    </label>
+                    <ToggleSwitch id="isDefault" {...form.register("isDefault")} />
+                  </div>
+                  {form.watch("isDefault") && (
+                    <p className="text-xs text-amber-600">Only one plan can be default.</p>
+                  )}
+                  <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
+                    <label htmlFor="isCustom" className="cursor-pointer text-sm text-text-primary">
+                      Enterprise-only custom plan
+                    </label>
+                    <ToggleSwitch id="isCustom" {...form.register("isCustom")} />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  id="isDefault"
-                  type="checkbox"
-                  {...form.register("isDefault")}
-                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                />
-                <label htmlFor="isDefault" className="text-sm text-text-primary">
-                  Make it default
-                </label>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  id="isCustom"
-                  type="checkbox"
-                  {...form.register("isCustom")}
-                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                />
-                <label htmlFor="isCustom" className="text-sm text-text-primary">
-                  Enterprise-only custom plan?
-                </label>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <AppButton
-                type="button"
-                variant="outline"
-                onClick={() => router.push(ROUTES.SUPERADMIN_PLANS)}
-              >
-                Cancel
-              </AppButton>
-              <AppButton form="create-plan-form" type="submit" loading={form.formState.isSubmitting}>
-                Create
-              </AppButton>
-            </div>
-        </FormProviderWrapper>
-      </AppCard>
-    </PageContainer>
+          </div>
+        </div>
+      </FormProviderWrapper>
+    </div>
+  );
+}
+
+function ToggleSwitch({
+  id,
+  ...rest
+}: { id: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <label className="relative inline-flex cursor-pointer items-center">
+      <input type="checkbox" id={id} className="peer sr-only" {...rest} />
+      <div className="peer h-6 w-11 rounded-full border border-border bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-focus:ring-2 peer-focus:ring-primary/30" />
+    </label>
+  );
+}
+
+function FeatureToggle({ name, label }: { name: string; label: string }) {
+  const { register } = useFormContext<FormValues>();
+  return (
+    <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
+      <span className="text-sm text-text-primary">{label}</span>
+      <ToggleSwitch id={name} {...register(name)} />
+    </div>
   );
 }

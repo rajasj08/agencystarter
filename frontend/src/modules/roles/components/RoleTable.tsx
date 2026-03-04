@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { DataTable, type DataTableColumn } from "@/components/design";
 import { ROUTES } from "@/constants/routes";
+import { ViewRoleModal } from "./ViewRoleModal";
 import type { Role } from "../types/roleTypes";
 
 export interface RoleTableProps {
@@ -11,6 +13,14 @@ export interface RoleTableProps {
 }
 
 export function RoleTable({ data, loading }: RoleTableProps) {
+  const [viewRoleId, setViewRoleId] = useState<string | null>(null);
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+
+  const openViewModal = (id: string) => {
+    setViewRoleId(id);
+    setViewModalOpen(true);
+  };
+
   const columns: DataTableColumn<Role>[] = [
     {
       key: "name",
@@ -38,12 +48,13 @@ export function RoleTable({ data, loading }: RoleTableProps) {
       header: "Actions",
       render: (row) => (
         <div className="flex items-center gap-2">
-          <Link
-            href={ROUTES.ROLE_VIEW(row.id)}
+          <button
+            type="button"
+            onClick={() => openViewModal(row.id)}
             className="text-sm font-medium text-primary hover:underline"
           >
             View
-          </Link>
+          </button>
           {!row.isSystem && (
             <Link
               href={ROUTES.ROLE_EDIT(row.id)}
@@ -58,13 +69,20 @@ export function RoleTable({ data, loading }: RoleTableProps) {
   ];
 
   return (
-    <DataTable<Role>
-      columns={columns}
-      data={data}
-      keyExtractor={(row) => row.id}
-      emptyMessage="No roles found."
-      loading={loading}
-      className="rounded-xl"
-    />
+    <>
+      <DataTable<Role>
+        columns={columns}
+        data={data}
+        keyExtractor={(row) => row.id}
+        emptyMessage="No roles found."
+        loading={loading}
+        className="rounded-xl"
+      />
+      <ViewRoleModal
+        roleId={viewRoleId}
+        open={viewModalOpen}
+        onOpenChange={setViewModalOpen}
+      />
+    </>
   );
 }

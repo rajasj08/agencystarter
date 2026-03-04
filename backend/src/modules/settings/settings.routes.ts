@@ -9,6 +9,7 @@ import { SettingsController } from "./settings.controller.js";
 const router = Router();
 const controller = new SettingsController();
 
+// Order: auth → tenant → permission.
 router.use(authMiddleware);
 router.use(requireTenant);
 

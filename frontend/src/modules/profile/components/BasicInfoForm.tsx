@@ -56,7 +56,7 @@ export function BasicInfoForm({ user, onSubmit, loading = false }: BasicInfoForm
   }, [user?.id]);
 
   return (
-    <FormProviderWrapper form={form as never} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <FormProviderWrapper form={form as never} onSubmit={onSubmit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <FormInput name="firstName" label="First name" />
         <FormInput name="lastName" label="Last name" />

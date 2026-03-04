@@ -39,4 +39,11 @@ export class AgencyRepository extends BaseRepository {
       orderBy: { createdAt: "desc" },
     });
   }
+
+  updatePartial(agencyId: string, data: Record<string, unknown>) {
+    return this.prisma.agency.update({
+      where: { id: agencyId },
+      data: data as Record<string, unknown>,
+    });
+  }
 }

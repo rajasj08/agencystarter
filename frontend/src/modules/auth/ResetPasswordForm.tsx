@@ -77,7 +77,7 @@ function ResetPasswordContent() {
           </AppButton>
         }
       >
-        <FormProviderWrapper form={form} id="reset-form" onSubmit={form.handleSubmit(onSubmit)}>
+        <FormProviderWrapper form={form} id="reset-form" onSubmit={onSubmit}>
           <FormRootError />
           <FormPassword name="password" label="auth.password" autoComplete="new-password" />
           <FormPasswordConfirm name="confirmPassword" label="auth.confirmPassword" />

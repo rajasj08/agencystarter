@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormProviderWrapper } from "@/components/forms";
-import { FormInput, FormCheckbox } from "@/components/forms";
-import { AppButton } from "@/components/design";
+import { FormInput } from "@/components/forms";
+import { AppButton, ToggleSwitch } from "@/components/design";
 import { getSettings, updateSettings, sendTestEmail } from "@/modules/settings/services/settingsService";
 import type { AgencySettings } from "../types/settingsTypes";
 import { toast } from "@/lib/toast";
@@ -122,51 +123,85 @@ export function EmailSettingsForm() {
   }
 
   return (
-    <div className="space-y-8">
-      <section>
-        <h2 className="text-lg font-medium text-text-primary mb-2">SMTP</h2>
-        <p className="text-sm text-text-secondary mb-4">
-          Configure the SMTP server used to send emails (verification, password reset, etc.).
-        </p>
-        <FormProviderWrapper form={form as never} onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-          <FormInput name="smtpHost" label="Host" placeholder="smtp.example.com" />
-          <FormInput name="smtpPort" label="Port" type="number" placeholder="587" helperText="Usually 587 (TLS) or 465 (SSL)." />
-          <FormInput name="smtpUsername" label="Username" />
-          <FormInput name="smtpPassword" label="Password" type="password" helperText="Leave blank to keep existing." />
-          <FormInput name="senderName" label="Sender name" placeholder="Agency Name" />
-          <FormInput name="senderEmail" label="Sender email" type="email" placeholder="noreply@example.com" />
-          <h3 className="text-base font-medium text-text-primary pt-2">Email features</h3>
-          <FormCheckbox name="enableEmails" label="Enable emails" helperText="Master switch for sending emails." />
-          <FormCheckbox name="enableVerificationEmails" label="Enable verification emails" />
-          <FormCheckbox name="enableResetEmails" label="Enable reset emails" />
-          <AppButton type="submit" loading={saving} disabled={saving}>
-            Save email settings
-          </AppButton>
-        </FormProviderWrapper>
-      </section>
+    <div className="space-y-6">
+      <FormProviderWrapper form={form as never} onSubmit={handleSubmit} className="space-y-6">
+        <Card className="rounded-2xl border border-border p-6 shadow-sm">
+          <CardHeader className="border-0 p-0 pb-4">
+            <CardTitle className="text-base font-medium">SMTP</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <p className="mb-4 text-sm text-text-secondary">
+              Configure the SMTP server used to send emails (verification, password reset, etc.).
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormInput name="smtpHost" label="Host" placeholder="smtp.example.com" />
+              <FormInput name="smtpPort" label="Port" type="number" placeholder="587" helperText="Usually 587 (TLS) or 465 (SSL)." />
+              <FormInput name="smtpUsername" label="Username" />
+              <FormInput name="smtpPassword" label="Password" type="password" helperText="Leave blank to keep existing." />
+              <FormInput name="senderName" label="Sender name" placeholder="Agency Name" />
+              <FormInput name="senderEmail" label="Sender email" type="email" placeholder="noreply@example.com" />
+            </div>
+          </CardContent>
+        </Card>
 
-      <section>
-        <h2 className="text-lg font-medium text-text-primary mb-2">Test email</h2>
-        <p className="text-sm text-text-secondary mb-4">Send a test email to verify your SMTP configuration.</p>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[200px]">
-            <label htmlFor="test-email-to" className="block text-sm font-medium text-text-primary mb-1">
-              Send test to
-            </label>
-            <input
-              id="test-email-to"
-              type="email"
-              value={testEmailTo}
-              onChange={(e) => setTestEmailTo(e.target.value)}
-              placeholder="you@example.com"
-              className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <AppButton variant="outline" type="button" onClick={handleSendTest} loading={sendingTest} disabled={sendingTest}>
-            Send test email
-          </AppButton>
+        <div className="max-w-[50%] space-y-6">
+        <Card className="rounded-2xl border border-border p-6 shadow-sm">
+          <CardHeader className="border-0 p-0 pb-4">
+            <CardTitle className="text-base font-medium">Email features</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-0">
+            <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
+              <div>
+                <span className="text-sm font-medium text-text-primary">Enable emails</span>
+                <p className="text-xs text-text-secondary">Master switch for sending emails.</p>
+              </div>
+              <ToggleSwitch id="enableEmails" {...form.register("enableEmails")} />
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
+              <span className="text-sm text-text-primary">Enable verification emails</span>
+              <ToggleSwitch id="enableVerificationEmails" {...form.register("enableVerificationEmails")} />
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
+              <span className="text-sm text-text-primary">Enable reset emails</span>
+              <ToggleSwitch id="enableResetEmails" {...form.register("enableResetEmails")} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <AppButton type="submit" loading={saving} disabled={saving}>
+          Save email settings
+        </AppButton>
         </div>
-      </section>
+      </FormProviderWrapper>
+
+      <div className="max-w-[50%]">
+      <Card className="rounded-2xl border border-border p-6 shadow-sm">
+        <CardHeader className="border-0 p-0 pb-4">
+          <CardTitle className="text-base font-medium">Test email</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <p className="mb-4 text-sm text-text-secondary">Send a test email to verify your SMTP configuration.</p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[200px] flex-1">
+              <label htmlFor="test-email-to" className="mb-1 block text-sm font-medium text-text-primary">
+                Send test to
+              </label>
+              <input
+                id="test-email-to"
+                type="email"
+                value={testEmailTo}
+                onChange={(e) => setTestEmailTo(e.target.value)}
+                placeholder="you@example.com"
+                className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <AppButton variant="outline" type="button" onClick={handleSendTest} loading={sendingTest} disabled={sendingTest}>
+              Send test email
+            </AppButton>
+          </div>
+        </CardContent>
+      </Card>
+      </div>
     </div>
   );
 }

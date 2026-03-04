@@ -110,7 +110,7 @@ export default function SuperadminSystemSettingsPage() {
   return (
     <PageContainer title="System Settings">
       <AppCard className="max-w-2xl rounded-xl">
-        <FormProviderWrapper form={form as never} onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormProviderWrapper form={form as never} onSubmit={onSubmit} className="space-y-6">
           <section>
             <h2 className="text-base font-medium text-text-primary mb-3">Registration</h2>
             <div className="space-y-3">

@@ -27,6 +27,13 @@ export interface SystemSettingsUpdateInput {
 /** Plan features JSON, e.g. { reports: true, auditLogs: true } */
 export type PlanFeatures = Record<string, boolean>;
 
+/** Editor info for "last edited by" (from API). */
+export interface PlanEditorInfo {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface Plan {
   id: string;
   name: string;
@@ -43,6 +50,8 @@ export interface Plan {
   isCustom: boolean | null;
   createdById: string | null;
   updatedById: string | null;
+  /** Resolved editor user (name, email) when fetching plan by id. */
+  updatedBy?: PlanEditorInfo | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -82,6 +91,13 @@ export const PLAN_FEATURE_KEYS = ["reports", "auditLogs"] as const;
 
 // Agencies -------------------------------------------------------------------
 
+/** Editor info for "last edited by" (from API). */
+export interface AgencyEditorInfo {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface AgencyListItem {
   id: string;
   name: string;
@@ -90,6 +106,8 @@ export interface AgencyListItem {
   planName: string | null;
   planCode: string | null;
   createdAt: string;
+  updatedAt: string;
+  updatedBy: AgencyEditorInfo | null;
   userCount?: number;
 }
 

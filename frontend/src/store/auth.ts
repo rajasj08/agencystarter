@@ -9,6 +9,8 @@ interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
   refreshToken: string | null;
+  /** True after hydrate() has run (so we can tell "no token" from "not loaded yet"). */
+  hydrated: boolean;
   setAuth: (user: AuthUser, accessToken: string, refreshToken: string) => void;
   setUser: (user: AuthUser) => void;
   setTokens: (accessToken: string, refreshToken?: string) => void;
@@ -21,6 +23,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,
   refreshToken: null,
+  hydrated: false,
   setAuth: (user, accessToken, refreshToken) => {
     if (typeof window !== "undefined") {
       localStorage.setItem(ACCESS_KEY, accessToken);
@@ -60,10 +63,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (accessToken && userStr) {
       try {
         document.cookie = "auth_session=1; path=/; max-age=900";
-        set({ accessToken, refreshToken, user: JSON.parse(userStr) as AuthUser });
+        set({ accessToken, refreshToken, user: JSON.parse(userStr) as AuthUser, hydrated: true });
       } catch {
         get().clearAuth();
+        set({ hydrated: true });
       }
+    } else {
+      set({ hydrated: true });
     }
   },
   getStoredRefreshToken: () => (typeof window !== "undefined" ? localStorage.getItem(REFRESH_KEY) : null),

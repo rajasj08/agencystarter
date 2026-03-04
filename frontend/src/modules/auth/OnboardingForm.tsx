@@ -70,7 +70,7 @@ export function OnboardingForm() {
         </AppButton>
       }
     >
-      <FormProviderWrapper form={form} id="onboarding-form" onSubmit={form.handleSubmit(onSubmit)}>
+      <FormProviderWrapper form={form} id="onboarding-form" onSubmit={onSubmit}>
         <FormRootError />
         <FormInput
           name="name"

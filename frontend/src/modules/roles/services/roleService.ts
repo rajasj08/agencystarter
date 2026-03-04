@@ -10,6 +10,12 @@ export async function getPermissions(): Promise<Permission[]> {
   return res.data.data;
 }
 
+/** Current user's permission IDs (for restricting assignable permissions in UI). */
+export async function getMyPermissionIds(): Promise<string[]> {
+  const res = await api.get<ApiSuccess<string[]>>("/roles/my-permission-ids");
+  return res.data.data;
+}
+
 export async function getRoles(): Promise<Role[]> {
   const res = await api.get<ApiSuccess<Role[]>>("/roles");
   return res.data.data;
