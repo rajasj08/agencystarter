@@ -10,7 +10,37 @@ import type { CreateAgencyInput } from "./agency.validation.js";
 
 const rolesService = new RolesService();
 
+/** Public DTO for agency login page (no auth required). */
+export interface AgencyPublicLoginDTO {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  ssoEnabled: boolean;
+  ssoEnforced: boolean;
+  ssoProvider: string | null;
+}
+
 export class AgencyService extends BaseService {
+  /** Public: resolve agency by slug for login page. Returns 404 if not found or agency not active. */
+  async getBySlugForLogin(agencySlug: string): Promise<AgencyPublicLoginDTO> {
+    const slug = agencySlug.trim().toLowerCase();
+    if (!slug) {
+      throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
+    }
+    const agency = await agencyRepo.findBySlug(slug);
+    if (!agency || agency.status !== "ACTIVE") {
+      throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
+    }
+    return {
+      id: agency.id,
+      name: agency.name,
+      logoUrl: agency.logo ?? null,
+      ssoEnabled: agency.ssoEnabled ?? false,
+      ssoEnforced: agency.ssoEnforced ?? false,
+      ssoProvider: agency.ssoProvider ?? null,
+    };
+  }
+
   async create(input: CreateAgencyInput, userId: string, callerRole?: string | null) {
     if (callerRole === ROLES.SUPER_ADMIN) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot create an agency via onboarding", 403);

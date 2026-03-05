@@ -70,8 +70,35 @@ export interface EmailVerificationRequiredResponse {
   message: string;
 }
 
-export async function login(email: string, password: string) {
-  const { data } = await api.post<ApiSuccess<LoginResponse>>("/auth/login", { email, password });
+export interface SsoStatusResponse {
+  ssoEnabled: boolean;
+  agencyId?: string;
+  provider?: string;
+  ssoEnforced?: boolean;
+}
+
+/** SSO status for an agency (by slug or agencyId). Returns null on 404 (SSO off or agency not found). */
+export async function getSsoStatus(params: { slug?: string; agencyId?: string }): Promise<SsoStatusResponse | null> {
+  const slug = params.slug?.trim();
+  const agencyId = params.agencyId?.trim();
+  const query = slug ? `slug=${encodeURIComponent(slug)}` : agencyId ? `agencyId=${encodeURIComponent(agencyId)}` : "";
+  if (!query) return null;
+  try {
+    const { data } = await api.get<ApiSuccess<SsoStatusResponse>>(`/auth/sso/status?${query}`);
+    return data.data;
+  } catch {
+    return null;
+  }
+}
+
+export async function login(
+  email: string,
+  password: string,
+  options?: { agencySlug?: string }
+) {
+  const body: { email: string; password: string; agencySlug?: string } = { email, password };
+  if (options?.agencySlug?.trim()) body.agencySlug = options.agencySlug.trim().toLowerCase();
+  const { data } = await api.post<ApiSuccess<LoginResponse>>("/auth/login", body);
   return data.data;
 }
 

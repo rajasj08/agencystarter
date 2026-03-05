@@ -5,6 +5,9 @@
 export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
+  LOGIN_CALLBACK: "/login/callback",
+  /** Agency-branded login: /agency/:agencySlug/login */
+  AGENCY_LOGIN: (agencySlug: string) => `/agency/${encodeURIComponent(agencySlug)}/login`,
   REGISTER: "/register",
   FORGOT_PASSWORD: "/forgot-password",
   VERIFY_EMAIL: "/verify-email",

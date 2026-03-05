@@ -150,4 +150,13 @@ describe("Security invariants", () => {
       data: { permissionsVersion: role!.permissionsVersion ?? 1 },
     });
   });
+
+  it("SSO routes return 404 when AUTH_SSO_ENABLED is false", async () => {
+    const res = await supertest(app)
+      .get(`${fixtures.apiPrefix}/auth/sso/oidc`)
+      .query({ agencyId: "any", redirect_uri: "http://localhost:3000/cb" })
+      .expect(404);
+    expect((res.body as { success: boolean }).success).toBe(false);
+    expect((res.body as { code?: string }).code).toBe("NOT_FOUND");
+  });
 });

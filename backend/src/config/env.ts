@@ -37,6 +37,8 @@ export const env = {
 
   // API
   API_PREFIX: optional("API_PREFIX", "/api/v1"),
+  /** Public base URL of this API (e.g. https://api.example.com). Used for SSO callback URL. No trailing slash. */
+  API_PUBLIC_BASE_URL: optional("API_PUBLIC_BASE_URL", "http://localhost:4000").replace(/\/$/, ""),
 
   // CORS / App URL (frontend origin; used in email links)
   CORS_ORIGIN: optional("CORS_ORIGIN", "http://localhost:3000"),
@@ -63,6 +65,11 @@ export const env = {
   SMTP_USER: optional("SMTP_USER", ""),
   SMTP_PASS: optional("SMTP_PASS", ""),
   SMTP_FROM: optional("SMTP_FROM", "noreply@example.com"),
+
+  // SSO (optional; when false, all /auth/sso/* routes return 404)
+  AUTH_SSO_ENABLED: optional("AUTH_SSO_ENABLED", "false") === "true",
+  /** When true, SSO callback may create a new user in the agency if email is verified and not found. */
+  AUTH_SSO_AUTO_PROVISION: optional("AUTH_SSO_AUTO_PROVISION", "false") === "true",
 } as const;
 
 export type Env = typeof env;

@@ -24,17 +24,32 @@ export const updateAgencyStatusSchema = z.object({
 });
 
 // POST /superadmin/agencies: create agency + agency admin
-const slugSchema = z.string().min(1).regex(/^[a-z0-9-]+$/, "Slug: lowercase letters, numbers, hyphens only");
+const slugSchema = z
+  .string()
+  .min(1)
+  .transform((s) => s.trim().toLowerCase())
+  .refine((s) => /^[a-z0-9-]+$/.test(s), "Slug: lowercase letters, numbers, hyphens only");
 export const createAgencySchema = z
   .object({
     name: z.string().min(1, "Name is required"),
     slug: slugSchema,
     planId: z.string().min(1, "Plan is required"),
-    adminEmail: z.string().email("Valid admin email is required"),
+    adminEmail: z.string().email("Valid admin email is required").transform((s) => s.trim().toLowerCase()),
     adminPassword: z.string().min(8, "Password must be at least 8 characters"),
     adminName: z.string().max(200).optional(),
   })
   .strict();
+
+const ssoConfigSchema = z
+  .object({
+    issuer: z.string().url().optional(),
+    clientId: z.string().min(1).optional(),
+    clientSecret: z.string().optional(),
+    scope: z.string().optional(),
+    allowedEmailDomains: z.array(z.string()).optional(),
+  })
+  .optional()
+  .nullable();
 
 // PATCH /superadmin/agencies/:id
 export const updateAgencySchema = z
@@ -42,6 +57,10 @@ export const updateAgencySchema = z
     name: z.string().min(1).optional(),
     planId: z.string().nullable().optional(),
     status: agencyStatusSchema.optional(),
+    ssoEnabled: z.boolean().optional(),
+    ssoEnforced: z.boolean().optional(),
+    ssoProvider: z.string().nullable().optional(),
+    ssoConfig: ssoConfigSchema,
   })
   .strict();
 
@@ -71,7 +90,7 @@ export const setUserRoleSchema = z.object({
 export const createUserSchema = z
   .object({
     agencyId: z.string().min(1, "Agency is required"),
-    email: z.string().email("Valid email is required"),
+    email: z.string().email("Valid email is required").transform((s) => s.trim().toLowerCase()),
     password: z.string().min(8, "Password must be at least 8 characters"),
     role: z.enum(["AGENCY_ADMIN", "AGENCY_MEMBER", "USER"]),
     name: z.string().max(200).optional(),

@@ -144,6 +144,7 @@ export default function SuperadminAgenciesPage() {
                       onSort={handleSort}
                     />
                     <TableHead>Plan</TableHead>
+                    <TableHead>SSO</TableHead>
                     <TableHead>Users</TableHead>
                     <SortableHead
                       label="Status"
@@ -165,7 +166,7 @@ export default function SuperadminAgenciesPage() {
                 <TableBody>
                   {list.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-text-secondary">
+                      <TableCell colSpan={8} className="text-center text-text-secondary">
                         No agencies
                       </TableCell>
                     </TableRow>
@@ -180,6 +181,23 @@ export default function SuperadminAgenciesPage() {
                               ? `${agency.planName} (${agency.planCode})`
                               : agency.planName
                             : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {agency.ssoEnabled === true ? (
+                            agency.ssoEnforced === true ? (
+                              <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                SSO Enforced
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                                SSO Optional
+                              </span>
+                            )
+                          ) : (
+                            <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                              SSO Disabled
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>{agency.userCount ?? 0}</TableCell>
                         <TableCell>

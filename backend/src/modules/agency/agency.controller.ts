@@ -5,10 +5,31 @@ import { AgencyService } from "./agency.service.js";
 import { createAgencySchema, updateAgencyTenantSchema } from "./agency.validation.js";
 import type { AuthRequest } from "../../middleware/auth.js";
 import { audit } from "../../lib/audit.js";
+import { asyncHandler } from "../../middleware/asyncHandler.js";
+import { AppError } from "../../errors/AppError.js";
 
 const agencyService = new AgencyService();
 
 export class AgencyController extends BaseController {
+  /** Public: get agency by slug for login page (no auth). */
+  getBySlugForLogin = async (req: Request, res: Response): Promise<void> => {
+    const agencySlug = (this.getParams(req).agencySlug as string)?.trim();
+    if (!agencySlug) {
+      this.fail(res, "VALIDATION_ERROR", "Slug is required", 400);
+      return;
+    }
+    try {
+      const data = await agencyService.getBySlugForLogin(agencySlug);
+      this.success(res, data, RESPONSE_CODES.FETCHED);
+    } catch (err) {
+      if (err instanceof AppError) {
+        this.fail(res, err.code ?? "ERROR", err.message, err.statusCode ?? 500);
+        return;
+      }
+      throw err;
+    }
+  };
+
   create = async (req: AuthRequest, res: Response): Promise<void> => {
     const parsed = createAgencySchema.safeParse(this.getBody(req));
     if (!parsed.success) {

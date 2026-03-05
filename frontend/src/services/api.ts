@@ -2,7 +2,7 @@ import axios, { type AxiosInstance } from "axios";
 import { refresh } from "./auth";
 import { useAuthStore } from "@/store/auth";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
 export const api: AxiosInstance = axios.create({
   baseURL: API_BASE,

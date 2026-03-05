@@ -84,6 +84,15 @@ export class AuthService extends BaseService {
     if (user.deletedAt) {
       throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Invalid email or password", 401);
     }
+    if (!user.passwordHash) {
+      throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Use SSO to sign in", 401);
+    }
+    if (user.agencyId) {
+      const agency = await agencyRepository.findById(user.agencyId);
+      if (agency?.ssoEnforced) {
+        throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Use SSO to sign in", 401);
+      }
+    }
     if (user.status === "DISABLED") {
       throw new AppError(ERROR_CODES.AUTH_USER_DISABLED, "Account is disabled", 403);
     }
@@ -100,7 +109,18 @@ export class AuthService extends BaseService {
     if (!valid) {
       throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Invalid email or password", 401);
     }
-    await authRepo.updateLastLoginAt(user.id);
+
+    if (input.agencySlug) {
+      const agency = await agencyRepository.findBySlug(input.agencySlug);
+      if (!agency || agency.status !== "ACTIVE") {
+        throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
+      }
+      const roleName = user.roleRef?.name ?? (user as { role?: string }).role;
+      if (roleName === ROLES.SUPER_ADMIN || user.agencyId !== agency.id) {
+        throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Invalid email or password", 401);
+      }
+    }
+
     const { auditLogin } = await import("../../lib/audit.js");
     await auditLogin({
       userId: user.id,
@@ -108,6 +128,22 @@ export class AuthService extends BaseService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+    return this.issueTokens(user, meta);
+  }
+
+  /**
+   * Issue access + refresh tokens for a known user. Used by login and SSO callback.
+   * Reuses same session and JWT shape as local login.
+   */
+  async issueTokens(
+    user: Awaited<ReturnType<typeof authRepo.findById>>,
+    meta?: { ipAddress?: string; userAgent?: string }
+  ) {
+    if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
+    if (user.deletedAt || user.status !== "ACTIVE") {
+      throw new AppError(ERROR_CODES.AUTH_USER_DISABLED, "Account is not active", 403);
+    }
+    await authRepo.updateLastLoginAt(user.id);
     const refreshToken = this.createRefreshToken();
     const refreshTokenHash = this.hashRefreshToken(refreshToken);
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS);
@@ -367,6 +403,9 @@ export class AuthService extends BaseService {
     const user = await authRepo.findById(userId);
     if (!user) {
       throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
+    }
+    if (!user.passwordHash) {
+      throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "SSO users do not have a password to change", 400);
     }
     const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
     if (!valid) {

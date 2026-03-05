@@ -98,6 +98,14 @@ export interface AgencyEditorInfo {
   email: string;
 }
 
+/** SSO config as returned by API (never includes clientSecret). */
+export interface SsoConfigPublic {
+  issuer?: string;
+  clientId?: string;
+  scope?: string;
+  allowedEmailDomains?: string[];
+}
+
 export interface AgencyListItem {
   id: string;
   name: string;
@@ -109,6 +117,10 @@ export interface AgencyListItem {
   updatedAt: string;
   updatedBy: AgencyEditorInfo | null;
   userCount?: number;
+  ssoEnabled?: boolean;
+  ssoEnforced?: boolean;
+  ssoProvider?: string | null;
+  ssoConfig?: SsoConfigPublic | null;
 }
 
 export interface AgenciesResponse {
@@ -247,9 +259,25 @@ export async function createAgency(input: CreateAgencyInput): Promise<AgencyList
   return data.data;
 }
 
+export interface UpdateAgencyInput {
+  name?: string;
+  planId?: string | null;
+  status?: AgencyStatus;
+  ssoEnabled?: boolean;
+  ssoEnforced?: boolean;
+  ssoProvider?: string | null;
+  ssoConfig?: {
+    issuer?: string;
+    clientId?: string;
+    clientSecret?: string;
+    scope?: string;
+    allowedEmailDomains?: string[];
+  } | null;
+}
+
 export async function updateAgency(
   agencyId: string,
-  input: { name?: string; planId?: string | null; status?: AgencyStatus }
+  input: UpdateAgencyInput
 ): Promise<AgencyListItem> {
   const { data } = await api.patch<ApiSuccess<AgencyListItem>>(
     `/superadmin/agencies/${agencyId}`,

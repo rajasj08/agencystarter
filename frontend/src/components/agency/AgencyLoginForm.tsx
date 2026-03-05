@@ -16,11 +16,12 @@ import { login } from "@/services/auth";
 import { setFormApiError } from "@/lib/formErrors";
 import { ROUTES } from "@/constants/routes";
 
-/**
- * Generic login form (email/password only). Used on /login.
- * For agency-branded login with optional SSO, use the agency login page at /agency/[agencySlug]/login.
- */
-export function LoginForm() {
+export interface AgencyLoginFormProps {
+  /** Agency slug for tenant isolation: only users of this agency can sign in. */
+  agencySlug: string;
+}
+
+export function AgencyLoginForm({ agencySlug }: AgencyLoginFormProps) {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
   const form = useAppForm<typeof loginSchema>({
@@ -30,7 +31,7 @@ export function LoginForm() {
 
   async function onSubmit(data: LoginFormValues) {
     try {
-      const result = await login(data.email, data.password);
+      const result = await login(data.email, data.password, { agencySlug });
       setAuth(
         result.user,
         result.accessToken,
@@ -54,11 +55,10 @@ export function LoginForm() {
 
   return (
     <AuthCard
-      title="Login"
       footer={
         <>
           <AppButton
-            form="login-form"
+            form="agency-login-form"
             type="submit"
             loading={form.formState.isSubmitting}
             className="shrink-0"
@@ -79,7 +79,7 @@ export function LoginForm() {
         </>
       }
     >
-      <FormProviderWrapper form={form} id="login-form" onSubmit={onSubmit}>
+      <FormProviderWrapper form={form} id="agency-login-form" onSubmit={onSubmit}>
         <FormRootError />
         <FormInput name="email" label="auth.email" type="email" autoComplete="email" />
         <FormPassword name="password" label="auth.password" autoComplete="current-password" />

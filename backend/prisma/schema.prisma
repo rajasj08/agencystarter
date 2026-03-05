@@ -21,6 +21,11 @@ model SystemSettings {
   updatedAt                 DateTime @updatedAt
 }
 
+enum AuthProvider {
+  LOCAL
+  OIDC
+}
+
 enum UserStatus {
   PENDING_VERIFICATION
   ACTIVE
@@ -58,6 +63,10 @@ model Agency {
   onboardingCompleted  Boolean      @default(false)
   status               AgencyStatus @default(ACTIVE)
   settings             Json?        @default("{}")
+  ssoEnabled           Boolean      @default(false)
+  ssoEnforced          Boolean      @default(false)
+  ssoProvider          String?
+  ssoConfig            Json?
   updatedById          String?
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
@@ -116,11 +125,13 @@ model RolePermission {
 }
 
 model User {
-  id                        String     @id @default(cuid())
+  id                        String        @id @default(cuid())
   agencyId                  String?
   roleId                    String?
-  email                     String     @unique
-  passwordHash              String     @map("password")
+  email                     String        @unique
+  authProvider               AuthProvider  @default(LOCAL)
+  providerId                String?       // IdP subject id when authProvider = OIDC
+  passwordHash              String?       @map("password") // null for OIDC-only users
   firstName                 String?
   lastName                  String?
   displayName               String?
@@ -128,14 +139,14 @@ model User {
   avatarUrl                 String?
   jobTitle                  String?
   department                String?
-  preferences               Json?      @default("{}")
-  status                    UserStatus @default(ACTIVE)
-  role                      String?    // Legacy: used until roleId backfilled; then removed
-  permissionSnapshotVersion Int        @default(1)
+  preferences               Json?         @default("{}")
+  status                    UserStatus    @default(ACTIVE)
+  role                      String?       // Legacy: used until roleId backfilled; then removed
+  permissionSnapshotVersion Int           @default(1)
   emailVerifiedAt           DateTime?
   lastLoginAt               DateTime?
-  createdAt                 DateTime   @default(now())
-  updatedAt                 DateTime   @updatedAt
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
   deletedAt                 DateTime?
   updatedById               String?
 

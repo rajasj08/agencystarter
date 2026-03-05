@@ -27,11 +27,27 @@ const statusOptions: { value: AgencyStatus; label: string }[] = [
   { value: "DELETED", label: "Deleted" },
 ];
 
-const schema = z.object({
-  name: z.string().min(1, "Name is required"),
-  status: z.enum(["ACTIVE", "DISABLED", "SUSPENDED", "DELETED"]),
-  planId: z.union([z.string().max(100), z.literal("")]).optional(),
-});
+const schema = z
+  .object({
+    name: z.string().min(1, "Name is required"),
+    status: z.enum(["ACTIVE", "DISABLED", "SUSPENDED", "DELETED"]),
+    planId: z.union([z.string().max(100), z.literal("")]).optional(),
+    ssoEnabled: z.boolean(),
+    ssoEnforced: z.boolean(),
+    ssoProvider: z.string(),
+    ssoIssuer: z.string(),
+    ssoClientId: z.string(),
+    ssoClientSecret: z.string(),
+    ssoScope: z.string(),
+    ssoAllowedEmailDomains: z.string(),
+  })
+  .refine(
+    (data) => {
+      if (!data.ssoEnabled) return true;
+      return Boolean(data.ssoIssuer?.trim() && data.ssoClientId?.trim());
+    },
+    { message: "Issuer and Client ID are required when SSO is enabled", path: ["ssoIssuer"] }
+  );
 
 type FormValues = z.infer<typeof schema>;
 
@@ -52,6 +68,14 @@ export default function SuperadminAgencyEditPage() {
       name: "",
       status: "ACTIVE",
       planId: "",
+      ssoEnabled: false,
+      ssoEnforced: false,
+      ssoProvider: "oidc",
+      ssoIssuer: "",
+      ssoClientId: "",
+      ssoClientSecret: "",
+      ssoScope: "openid email profile",
+      ssoAllowedEmailDomains: "",
     },
   });
 
@@ -69,10 +93,22 @@ export default function SuperadminAgencyEditPage() {
         setPlans(plansList);
         setAgencyUpdatedAt(agencyData.updatedAt);
         setAgencyUpdatedBy(agencyData.updatedBy ?? null);
+        const cfg = agencyData.ssoConfig;
+        const domains = cfg?.allowedEmailDomains?.length
+          ? cfg.allowedEmailDomains.join(", ")
+          : "";
         form.reset({
           name: agencyData.name,
           status: agencyData.status as AgencyStatus,
           planId: "",
+          ssoEnabled: agencyData.ssoEnabled ?? false,
+          ssoEnforced: agencyData.ssoEnforced ?? false,
+          ssoProvider: agencyData.ssoProvider ?? "oidc",
+          ssoIssuer: cfg?.issuer ?? "",
+          ssoClientId: cfg?.clientId ?? "",
+          ssoClientSecret: "",
+          ssoScope: cfg?.scope ?? "openid email profile",
+          ssoAllowedEmailDomains: domains,
         });
       } catch {
         setNotFound(true);
@@ -86,11 +122,31 @@ export default function SuperadminAgencyEditPage() {
   const handleSubmit = useCallback(
     async (data: FormValues) => {
       try {
-        await updateAgency(agencyId, {
+        const payload: Parameters<typeof updateAgency>[1] = {
           name: data.name,
           status: data.status as AgencyStatus,
           planId: data.planId?.trim() || null,
-        });
+          ssoEnabled: data.ssoEnabled,
+          ssoEnforced: data.ssoEnforced,
+          ssoProvider: data.ssoEnabled ? (data.ssoProvider || "oidc") : null,
+          ssoConfig: undefined,
+        };
+        if (data.ssoEnabled) {
+          const domainsRaw = data.ssoAllowedEmailDomains?.trim();
+          const allowedEmailDomains = domainsRaw
+            ? domainsRaw.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean)
+            : undefined;
+          payload.ssoConfig = {
+            issuer: data.ssoIssuer?.trim() || undefined,
+            clientId: data.ssoClientId?.trim() || undefined,
+            clientSecret: data.ssoClientSecret?.trim() || undefined,
+            scope: data.ssoScope?.trim() || undefined,
+            allowedEmailDomains,
+          };
+        } else {
+          payload.ssoConfig = null;
+        }
+        await updateAgency(agencyId, payload);
         toast.success("Agency updated.");
         router.push(ROUTES.SUPERADMIN_AGENCIES);
       } catch (err) {
@@ -195,6 +251,91 @@ export default function SuperadminAgencyEditPage() {
                     )}
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base font-medium">SSO (optional)</CardTitle>
+                <p className="text-sm text-text-secondary">
+                  Enable OpenID Connect SSO for this agency. When enforced, users must sign in via SSO.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4 p-6">
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      {...form.register("ssoEnabled")}
+                      className="h-4 w-4 rounded border-border"
+                    />
+                    <span className="text-sm font-medium text-text-primary">Enable SSO</span>
+                  </label>
+                  {form.watch("ssoEnabled") && (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        {...form.register("ssoEnforced")}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      <span className="text-sm font-medium text-text-primary">Enforce SSO (hide password login)</span>
+                    </label>
+                  )}
+                </div>
+                {form.watch("ssoEnabled") && (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-text-primary">Provider</label>
+                      <select
+                        {...form.register("ssoProvider")}
+                        className="w-full max-w-xs rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary"
+                      >
+                        <option value="oidc">OIDC</option>
+                      </select>
+                    </div>
+                    <FormInput
+                      name="ssoIssuer"
+                      label="Issuer URL"
+                      type="url"
+                      placeholder="https://idp.example.com/"
+                    />
+                    <FormInput
+                      name="ssoClientId"
+                      label="Client ID"
+                      placeholder="your-client-id"
+                    />
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-text-primary">Client secret</label>
+                      <input
+                        type="password"
+                        {...form.register("ssoClientSecret")}
+                        placeholder="Leave blank to keep existing"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary"
+                        autoComplete="new-password"
+                      />
+                      <p className="mt-1 text-xs text-text-secondary">Leave blank to keep the existing secret.</p>
+                    </div>
+                    <FormInput
+                      name="ssoScope"
+                      label="Scope (optional)"
+                      placeholder="openid email profile"
+                    />
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-text-primary">Allowed email domains (optional)</label>
+                      <input
+                        {...form.register("ssoAllowedEmailDomains")}
+                        placeholder="company.com, other.com"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary"
+                      />
+                      <p className="mt-1 text-xs text-text-secondary">Comma- or space-separated. Empty = allow all.</p>
+                    </div>
+                    {(form.formState.errors.ssoIssuer ?? form.formState.errors.ssoClientId) && (
+                      <p className="text-sm text-red-600">
+                        {form.formState.errors.ssoIssuer?.message ?? form.formState.errors.ssoClientId?.message}
+                      </p>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>

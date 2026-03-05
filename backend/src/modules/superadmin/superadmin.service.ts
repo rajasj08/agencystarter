@@ -54,6 +54,14 @@ export interface AgencyEditorDTO {
   email: string;
 }
 
+/** ssoConfig for API response: never include clientSecret. */
+export type SsoConfigPublic = {
+  issuer?: string;
+  clientId?: string;
+  scope?: string;
+  allowedEmailDomains?: string[];
+};
+
 export interface AgencyListItemDTO {
   id: string;
   name: string;
@@ -65,6 +73,21 @@ export interface AgencyListItemDTO {
   updatedAt: Date;
   updatedBy: AgencyEditorDTO | null;
   userCount?: number;
+  ssoEnabled?: boolean;
+  ssoEnforced?: boolean;
+  ssoProvider?: string | null;
+  ssoConfig?: SsoConfigPublic | null;
+}
+
+function sanitizeSsoConfig(raw: unknown): SsoConfigPublic | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const out: SsoConfigPublic = {};
+  if (typeof o.issuer === "string") out.issuer = o.issuer;
+  if (typeof o.clientId === "string") out.clientId = o.clientId;
+  if (typeof o.scope === "string") out.scope = o.scope;
+  if (Array.isArray(o.allowedEmailDomains)) out.allowedEmailDomains = o.allowedEmailDomains.filter((x) => typeof x === "string");
+  return Object.keys(out).length ? out : null;
 }
 
 export interface PlatformUserListItemDTO {
@@ -175,6 +198,10 @@ export class SuperadminService {
       updatedAt: a.updatedAt,
       updatedBy: null,
       userCount: a._count.users,
+      ssoEnabled: a.ssoEnabled ?? false,
+      ssoEnforced: (a as { ssoEnforced?: boolean }).ssoEnforced ?? false,
+      ssoProvider: a.ssoProvider ?? null,
+      ssoConfig: sanitizeSsoConfig(a.ssoConfig),
     }));
     return { data, total };
   }
@@ -204,6 +231,10 @@ export class SuperadminService {
       updatedAt: agency.updatedAt,
       updatedBy,
       userCount: agency._count.users,
+      ssoEnabled: agency.ssoEnabled ?? false,
+      ssoEnforced: (agency as { ssoEnforced?: boolean }).ssoEnforced ?? false,
+      ssoProvider: agency.ssoProvider ?? null,
+      ssoConfig: sanitizeSsoConfig(agency.ssoConfig),
     };
   }
 
@@ -269,10 +300,42 @@ export class SuperadminService {
       if (!plan.isActive) throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Plan is not active", 403);
     }
 
+    let ssoProvider: string | null | undefined;
+    let ssoConfig: unknown;
+    if (input.ssoEnabled === false) {
+      ssoProvider = null;
+      ssoConfig = null;
+    } else if (input.ssoEnabled === true && input.ssoConfig != null) {
+      const cfg = input.ssoConfig as { issuer?: string; clientId?: string; clientSecret?: string; scope?: string; allowedEmailDomains?: string[] };
+      if (!cfg.issuer?.trim() || !cfg.clientId?.trim()) {
+        throw new AppError(ERROR_CODES.INTERNAL_ERROR, "When SSO is enabled, issuer and clientId are required", 400);
+      }
+      const existing = (agency.ssoConfig as { clientSecret?: string } | null) ?? {};
+      const clientSecret = cfg.clientSecret?.trim() ? cfg.clientSecret.trim() : existing.clientSecret;
+      if (!clientSecret) {
+        throw new AppError(ERROR_CODES.INTERNAL_ERROR, "When SSO is enabled, clientSecret is required (leave blank to keep existing)", 400);
+      }
+      ssoProvider = input.ssoProvider ?? "oidc";
+      ssoConfig = {
+        issuer: cfg.issuer.trim(),
+        clientId: cfg.clientId.trim(),
+        clientSecret,
+        scope: cfg.scope?.trim() || "openid email profile",
+        allowedEmailDomains: Array.isArray(cfg.allowedEmailDomains) ? cfg.allowedEmailDomains.filter((d) => typeof d === "string" && d.trim()) : undefined,
+      };
+    } else {
+      ssoProvider = undefined;
+      ssoConfig = undefined;
+    }
+
     await agencyRepository.updatePartial(agencyId, {
       ...(input.name !== undefined && { name: input.name }),
       ...(input.planId !== undefined && { planId: input.planId }),
       ...(input.status !== undefined && { status: input.status }),
+      ...(input.ssoEnabled !== undefined && { ssoEnabled: input.ssoEnabled }),
+      ...(input.ssoEnforced !== undefined && { ssoEnforced: input.ssoEnforced }),
+      ...(ssoProvider !== undefined && { ssoProvider }),
+      ...(ssoConfig !== undefined && { ssoConfig }),
       updatedById: req.user!.userId,
     });
     const updated = await agencyRepository.findByIdWithPlanAndCount(agencyId);
@@ -306,6 +369,10 @@ export class SuperadminService {
       updatedAt: updated!.updatedAt,
       updatedBy,
       userCount: updated!._count.users,
+      ssoEnabled: updated!.ssoEnabled ?? false,
+      ssoEnforced: (updated as { ssoEnforced?: boolean }).ssoEnforced ?? false,
+      ssoProvider: updated!.ssoProvider ?? null,
+      ssoConfig: sanitizeSsoConfig(updated!.ssoConfig),
     };
   }
 

@@ -10,6 +10,9 @@ import { AgencyController } from "./agency.controller.js";
 const router = Router();
 const controller = new AgencyController();
 
+// Public: agency login page (no auth). Must be before authMiddleware.
+router.get("/slug/:agencySlug", asyncHandler(controller.getBySlugForLogin.bind(controller)));
+
 // Order: auth; then permission. GET list/getById are platform or scoped in service; PATCH has tenant then permission.
 router.use(authMiddleware);
 

@@ -2,6 +2,8 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { env } from "../config/env.js";
 import { authRoutes } from "../modules/auth/auth.routes.js";
+import { rateLimitSso } from "../middleware/rateLimitSso.js";
+import { ssoRoutes } from "../modules/auth/sso/sso.routes.js";
 import { agencyRoutes } from "../modules/agency/agency.routes.js";
 import { settingsRoutes } from "../modules/settings/settings.routes.js";
 import { userRoutes } from "../modules/users/user.routes.js";
@@ -23,6 +25,14 @@ const authRateLimit = rateLimit({
 });
 
 apiRouter.use("/auth", authRateLimit, authRoutes);
+
+if (env.AUTH_SSO_ENABLED) {
+  apiRouter.use("/auth/sso", rateLimitSso, ssoRoutes);
+} else {
+  apiRouter.use("/auth/sso", (_req, res) =>
+    res.status(404).json({ success: false, code: "NOT_FOUND", message: "Not found" })
+  );
+}
 apiRouter.use("/agencies", agencyRoutes);
 apiRouter.use("/settings", settingsRoutes);
 apiRouter.use("/users", userRoutes);

@@ -13,6 +13,22 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
+  /** Find user by email and agency (for SSO tenant resolution). */
+  findByEmailAndAgency(email: string, agencyId: string) {
+    return this.prisma.user.findFirst({
+      where: { email: email.toLowerCase(), agencyId, deletedAt: null },
+      include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } },
+    });
+  }
+
+  /** Find user by OIDC provider and provider subject id (for SSO link). */
+  findByProviderId(provider: string, providerId: string) {
+    return this.prisma.user.findFirst({
+      where: { authProvider: "OIDC", providerId, deletedAt: null },
+      include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } },
+    });
+  }
+
   findById(id: string) {
     return this.prisma.user.findUnique({
       where: { id, deletedAt: null },
@@ -29,19 +45,27 @@ export class AuthRepository extends BaseRepository {
 
   createUser(data: {
     email: string;
-    passwordHash: string;
+    passwordHash?: string | null;
     displayName?: string | null;
     roleId: string;
     status: UserStatus;
     agencyId?: string | null;
+    authProvider?: "LOCAL" | "OIDC";
+    providerId?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
   }) {
     return this.prisma.user.create({
       data: {
         email: data.email.toLowerCase(),
-        passwordHash: data.passwordHash,
+        passwordHash: data.passwordHash ?? null,
         displayName: data.displayName ?? null,
         roleId: data.roleId,
         status: data.status,
+        authProvider: data.authProvider ?? "LOCAL",
+        providerId: data.providerId ?? null,
+        firstName: data.firstName ?? null,
+        lastName: data.lastName ?? null,
         ...(data.agencyId != null && { agencyId: data.agencyId }),
       },
       include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } },

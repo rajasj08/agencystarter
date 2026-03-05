@@ -1,8 +1,13 @@
 import { z } from "zod";
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email().transform((s) => s.trim().toLowerCase()),
   password: z.string().min(1),
+  /** When set, login is restricted to users belonging to this agency (tenant isolation). Rejects superadmin and other agencies. */
+  agencySlug: z
+    .string()
+    .optional()
+    .transform((s) => (s?.trim() ? s.trim().toLowerCase() : undefined)),
 });
 
 export const registerSchema = z
@@ -22,7 +27,7 @@ export const refreshSchema = z.object({
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email().transform((s) => s.trim().toLowerCase()),
 });
 
 export const resetPasswordSchema = z.object({
