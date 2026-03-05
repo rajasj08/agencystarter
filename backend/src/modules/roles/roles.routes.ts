@@ -2,6 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import { authMiddleware } from "../../middleware/auth.js";
 import { requireTenant } from "../../middleware/tenant.js";
+import { tenantIpGuard } from "../../middleware/tenantIpGuard.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { PERMISSIONS } from "../../constants/permissions.js";
 import { RolesController } from "./roles.controller.js";
@@ -26,6 +27,7 @@ router.get(
 );
 
 router.use(requireTenant);
+router.use(asyncHandler(tenantIpGuard));
 router.get("/", requirePermission(PERMISSIONS.ROLE_READ, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.listRoles.bind(controller)));
 router.get("/:id", requirePermission(PERMISSIONS.ROLE_READ, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.getRoleById.bind(controller)));
 router.post(

@@ -5,6 +5,7 @@ import { UPDATABLE_IDENTITY_KEYS } from "./settings.repository.js";
 import { AppError } from "../../errors/AppError.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
 import type { UpdateSettingsInput } from "./settings.validation.js";
+import { validateCidr } from "../../utils/cidr.js";
 import nodemailer from "nodemailer";
 
 const DEFAULTS: Record<string, unknown> = {
@@ -63,6 +64,24 @@ export class SettingsService extends BaseService {
         identity[key] = value === "" ? null : value;
       } else {
         settingsUpdates[key] = value === "" ? null : value;
+      }
+    }
+
+    if (settingsUpdates.ipAllowlist !== undefined) {
+      const list = settingsUpdates.ipAllowlist;
+      if (Array.isArray(list)) {
+        for (let i = 0; i < list.length; i++) {
+          const entry = list[i];
+          if (typeof entry !== "string" || !validateCidr(entry)) {
+            throw new AppError(
+              ERROR_CODES.VALIDATION_ERROR,
+              `ipAllowlist[${i}]: invalid IPv4 CIDR (e.g. 192.168.1.0/24)`,
+              400
+            );
+          }
+        }
+      } else if (list !== null && list !== "") {
+        throw new AppError(ERROR_CODES.VALIDATION_ERROR, "ipAllowlist must be an array of CIDR strings", 400);
       }
     }
 

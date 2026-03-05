@@ -5,25 +5,19 @@ import { requireTenant } from "../../middleware/tenant.js";
 import { tenantIpGuard } from "../../middleware/tenantIpGuard.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { PERMISSIONS } from "../../constants/permissions.js";
-import { AuditLogController } from "./audit-log.controller.js";
+import { ApiKeyController } from "./api-key.controller.js";
 
 const router = Router();
-const controller = new AuditLogController();
+const controller = new ApiKeyController();
 
-// Order: auth → tenant → permission.
 router.use(authMiddleware);
 router.use(requireTenant);
 router.use(asyncHandler(tenantIpGuard));
+router.use(requirePermission(PERMISSIONS.SETTINGS_UPDATE, PERMISSIONS.ADMIN_ALL));
 
-router.get(
-  "/",
-  requirePermission(PERMISSIONS.SETTINGS_READ, PERMISSIONS.ADMIN_ALL),
-  asyncHandler(controller.list.bind(controller))
-);
-router.get(
-  "/export",
-  requirePermission(PERMISSIONS.SETTINGS_READ, PERMISSIONS.ADMIN_ALL),
-  asyncHandler(controller.export.bind(controller))
-);
+router.get("/", asyncHandler(controller.list.bind(controller)));
+router.post("/", asyncHandler(controller.create.bind(controller)));
+router.post("/:id/revoke", asyncHandler(controller.revoke.bind(controller)));
+router.post("/:id/rotate", asyncHandler(controller.rotate.bind(controller)));
 
-export const auditLogRoutes = router;
+export const apiKeyRoutes = router;

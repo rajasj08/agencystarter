@@ -15,8 +15,15 @@ import {
   type ListUsersQuery,
 } from "./superadmin.validation.js";
 import type { AuthRequest } from "../../middleware/auth.js";
+import { ApiKeyService } from "../api-keys/api-key.service.js";
+import { createApiKeySchema } from "../api-keys/api-key.validation.js";
+import { AuditLogService } from "../audit-logs/audit-log.service.js";
+import { auditExportQuerySchema } from "../audit-logs/audit-log.validation.js";
+import { audit } from "../../lib/audit.js";
 
 const service = new SuperadminService();
+const apiKeyService = new ApiKeyService();
+const auditLogService = new AuditLogService();
 
 export class SuperadminController extends BaseController {
   getSystemSettings = async (_req: AuthRequest, res: Response): Promise<void> => {
@@ -155,6 +162,10 @@ export class SuperadminController extends BaseController {
   };
 
   loginAsAgency = async (req: AuthRequest, res: Response): Promise<void> => {
+    if (req.user?.isApiKey) {
+      this.fail(res, "PERMISSION_DENIED", "API keys cannot impersonate", 403);
+      return;
+    }
     const agencyId = this.getParams(req).id;
     if (!agencyId) {
       this.fail(res, "VALIDATION_ERROR", "Agency ID is required", 400);
@@ -186,6 +197,10 @@ export class SuperadminController extends BaseController {
   };
 
   impersonate = async (req: AuthRequest, res: Response): Promise<void> => {
+    if (req.user?.isApiKey) {
+      this.fail(res, "PERMISSION_DENIED", "API keys cannot impersonate", 403);
+      return;
+    }
     const parsed = impersonateSchema.safeParse(this.getBody(req));
     if (!parsed.success) {
       this.fail(
@@ -325,5 +340,84 @@ export class SuperadminController extends BaseController {
     const { sortBy, sortOrder } = this.getSort(req);
     const { data, total } = await service.getAuditLogs({ page, limit, offset, sortBy, sortOrder });
     this.paginated(res, data, total, { page, limit }, RESPONSE_CODES.FETCHED);
+  };
+
+  exportAuditLogs = async (req: AuthRequest, res: Response): Promise<void> => {
+    const parsed = auditExportQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      this.fail(res, "VALIDATION_ERROR", "Invalid export parameters", 400, parsed.error.flatten().fieldErrors as Record<string, unknown>);
+      return;
+    }
+    const { format, from, to, action, userId, resource, limit, offset } = parsed.data;
+    const filters = {
+      dateFrom: from && from.trim() ? new Date(from) : null,
+      dateTo: to && to.trim() ? new Date(to) : null,
+      action: action && action.trim() ? action.trim() : null,
+      userId: userId && userId.trim() ? userId.trim() : null,
+      resource: resource && resource.trim() ? resource.trim() : null,
+    };
+    const validFrom = Number.isNaN(filters.dateFrom?.getTime() ?? NaN) ? null : filters.dateFrom;
+    const validTo = Number.isNaN(filters.dateTo?.getTime() ?? NaN) ? null : filters.dateTo;
+    const result = await auditLogService.exportPlatform(
+      { ...filters, dateFrom: validFrom, dateTo: validTo },
+      format,
+      { offset, limit }
+    );
+
+    await audit(req, {
+      action: "audit.export",
+      resource: "audit_log",
+      details: { scope: "platform", format, recordCount: result.data.length, total: result.total, filters: { from, to, action, userId, resource } },
+    });
+
+    if (format === "csv") {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=audit-logs-platform.csv");
+      res.send(auditLogService.toCsv(result.data));
+      return;
+    }
+    this.success(res, { data: result.data, total: result.total, offset, limit }, RESPONSE_CODES.FETCHED, "Export complete");
+  };
+
+  listApiKeys = async (req: AuthRequest, res: Response): Promise<void> => {
+    const list = await apiKeyService.list(null);
+    this.success(res, { apiKeys: list }, RESPONSE_CODES.FETCHED);
+  };
+
+  createApiKey = async (req: AuthRequest, res: Response): Promise<void> => {
+    const parsed = createApiKeySchema.safeParse(this.getBody(req));
+    if (!parsed.success) {
+      this.fail(res, "VALIDATION_ERROR", "Validation failed", 400, parsed.error.flatten().fieldErrors as Record<string, unknown>);
+      return;
+    }
+    const expiresAt = parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null;
+    const result = await apiKeyService.create(req, null, {
+      name: parsed.data.name,
+      permissionKeys: parsed.data.permissionKeys,
+      expiresAt,
+    });
+    this.created(res, { key: result.key, apiKey: result.apiKey }, "Platform API key created. Store the key securely; it will not be shown again.");
+  };
+
+  revokeApiKey = async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = this.getParams(req);
+    await apiKeyService.revoke(req, id, null);
+    this.success(res, { id }, RESPONSE_CODES.UPDATED, "API key revoked");
+  };
+
+  rotateApiKey = async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = this.getParams(req);
+    const parsed = createApiKeySchema.safeParse(this.getBody(req));
+    if (!parsed.success) {
+      this.fail(res, "VALIDATION_ERROR", "Validation failed", 400, parsed.error.flatten().fieldErrors as Record<string, unknown>);
+      return;
+    }
+    const expiresAt = parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null;
+    const result = await apiKeyService.rotate(req, id, null, {
+      name: parsed.data.name,
+      permissionKeys: parsed.data.permissionKeys,
+      expiresAt,
+    });
+    this.success(res, { key: result.key, apiKey: result.apiKey }, RESPONSE_CODES.SUCCESS, "API key rotated. New key is returned; old key is revoked.");
   };
 }

@@ -15,11 +15,13 @@ import { AgencyRepository } from "../modules/agency/agency.repository.js";
 import { SettingsRepository } from "../modules/settings/settings.repository.js";
 import { PlansRepository } from "../modules/plans/plans.repository.js";
 import { AuditLogRepository } from "../modules/audit-logs/audit-log.repository.js";
+import { ApiKeyRepository } from "../modules/api-keys/api-key.repository.js";
 import { SystemSettingsRepository } from "../modules/platform/system-settings.repository.js";
 import { SuperadminSystemSettingsRepository } from "../modules/superadmin/superadmin-system-settings.repository.js";
 
 export const userRepository = new UserRepository(prisma);
 export const authRepository = new AuthRepository(prisma);
+export const apiKeyRepository = new ApiKeyRepository(prisma);
 export const roleRepository = new RoleRepository(prisma);
 export const agencyRepository = new AgencyRepository(prisma);
 export const settingsRepository = new SettingsRepository(prisma);

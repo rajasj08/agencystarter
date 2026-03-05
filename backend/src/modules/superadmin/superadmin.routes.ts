@@ -39,5 +39,11 @@ router.patch("/users/:id/reset-password", asyncHandler(controller.resetUserPassw
 router.post("/impersonate", asyncHandler(controller.impersonate.bind(controller)));
 router.post("/stop", asyncHandler(controller.stopImpersonation.bind(controller)));
 router.get("/audit", asyncHandler(controller.getAuditLogs.bind(controller)));
+router.get("/audit/export", asyncHandler(controller.exportAuditLogs.bind(controller)));
+
+router.get("/api-keys", asyncHandler(controller.listApiKeys.bind(controller)));
+router.post("/api-keys", asyncHandler(controller.createApiKey.bind(controller)));
+router.post("/api-keys/:id/revoke", asyncHandler(controller.revokeApiKey.bind(controller)));
+router.post("/api-keys/:id/rotate", asyncHandler(controller.rotateApiKey.bind(controller)));
 
 export const superadminRoutes = router;

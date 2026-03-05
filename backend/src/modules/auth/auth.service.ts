@@ -418,6 +418,44 @@ export class AuthService extends BaseService {
     return { count: result.count };
   }
 
+  /** List active sessions for the tenant (agency). Caller must have USER_LIST or be superadmin. */
+  async getSessionsForTenant(agencyId: string) {
+    const rows = await authRepo.findSessionsByAgencyId(agencyId);
+    return rows.map((s) => ({
+      id: s.id,
+      userId: s.user.id,
+      userEmail: s.user.email,
+      userName: s.user.displayName,
+      ipAddress: s.ipAddress,
+      userAgent: s.userAgent,
+      createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
+    }));
+  }
+
+  /** Revoke a session by id. Allowed: own session, tenant admin for session in same agency, superadmin. Returns details for audit. */
+  async revokeSessionById(
+    sessionId: string,
+    caller: { userId: string; agencyId: string | null; isSuperAdmin?: boolean },
+    hasTenantAdminPermission: boolean
+  ): Promise<{ sessionId: string; targetUserId: string }> {
+    const session = await authRepo.findSessionById(sessionId);
+    if (!session) {
+      throw new AppError(ERROR_CODES.SESSION_NOT_FOUND, "Session not found", 404);
+    }
+    const isOwn = session.userId === caller.userId;
+    const sameAgency = session.user.agencyId !== null && session.user.agencyId === caller.agencyId;
+    const canRevoke =
+      isOwn ||
+      (caller.isSuperAdmin === true) ||
+      (hasTenantAdminPermission && sameAgency);
+    if (!canRevoke) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot revoke this session", 403);
+    }
+    await authRepo.deleteSessionById(sessionId);
+    return { sessionId, targetUserId: session.userId };
+  }
+
   private async sendVerificationEmail(email: string, token: string, userName: string | null) {
     const link = `${env.CORS_ORIGIN}/verify-email?token=${token}`;
     const sent = await sendVerificationEmailMail(email, userName, link);

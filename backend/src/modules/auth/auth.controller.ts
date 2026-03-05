@@ -13,6 +13,10 @@ import {
   updateProfileSchema,
 } from "./auth.validation.js";
 import type { AuthRequest } from "../../middleware/auth.js";
+import { resolveRoleId } from "../../middleware/rbac.js";
+import { getPermissionKeysForRole } from "../../services/RolePermissionCache.js";
+import { PERMISSIONS } from "../../constants/permissions.js";
+import { audit } from "../../lib/audit.js";
 
 const authService = new AuthService();
 
@@ -143,5 +147,42 @@ export class AuthController extends BaseController {
     const userId = (req as AuthRequest).user!.userId;
     const result = await authService.logoutOtherSessions(userId, parsed.data.refreshToken);
     this.success(res, { message: "Other sessions logged out", count: result.count }, RESPONSE_CODES.SUCCESS);
+  };
+
+  /** List active sessions for the tenant (agency). Requires USER_LIST. */
+  getSessionsForTenant = async (req: Request, res: Response): Promise<void> => {
+    const agencyId = (req as AuthRequest).user!.agencyId!;
+    const sessions = await authService.getSessionsForTenant(agencyId);
+    this.success(res, { sessions }, RESPONSE_CODES.FETCHED);
+  };
+
+  /** Revoke a session by id. Allowed: own session, or tenant admin (USER_LIST) for session in same agency, or superadmin. */
+  revokeSession = async (req: Request, res: Response): Promise<void> => {
+    const { id: sessionId } = this.getParams(req);
+    const authReq = req as AuthRequest;
+    let hasTenantAdmin = authReq.user!.isSuperAdmin === true;
+    if (!hasTenantAdmin && authReq.user!.isApiKey && authReq.user!.apiKeyPermissions) {
+      hasTenantAdmin =
+        authReq.user!.apiKeyPermissions.has(PERMISSIONS.USER_LIST) ||
+        authReq.user!.apiKeyPermissions.has(PERMISSIONS.ADMIN_ALL);
+    } else if (!hasTenantAdmin) {
+      const roleId = await resolveRoleId(authReq);
+      if (roleId) {
+        const keys = await getPermissionKeysForRole(roleId);
+        hasTenantAdmin = keys.has(PERMISSIONS.USER_LIST) || keys.has(PERMISSIONS.ADMIN_ALL);
+      }
+    }
+    const { sessionId: id, targetUserId } = await authService.revokeSessionById(
+      sessionId,
+      authReq.user!,
+      hasTenantAdmin
+    );
+    await audit(authReq, {
+      action: "session.revoked",
+      resource: "session",
+      resourceId: id,
+      details: { targetUserId },
+    });
+    this.success(res, { id }, RESPONSE_CODES.UPDATED, "Session revoked");
   };
 }

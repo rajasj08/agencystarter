@@ -36,6 +36,12 @@ export const agencySettingsSchema = z.object({
   enableVerificationEmails: z.boolean().optional(),
   enableResetEmails: z.boolean().optional(),
   theme: z.enum(["light", "dark", "system"]).optional().nullable(),
+  /** Per-tenant IP allowlist: array of IPv4 CIDR strings (e.g. "192.168.1.0/24"). Empty = no restriction. */
+  ipAllowlist: z
+    .array(z.string().min(1).max(50))
+    .max(100)
+    .optional()
+    .nullable(),
 });
 
 export type AgencySettingsInput = z.infer<typeof agencySettingsSchema>;

@@ -23,9 +23,13 @@ export const env = {
   PORT: parseInt(optional("PORT", "4000"), 10),
 
   // Database (dev default so server starts without .env; set in production)
-  DATABASE_URL: isDev
-    ? optional("DATABASE_URL", "postgresql://localhost:5432/agencystarter")
-    : required("DATABASE_URL"),
+  // In test, prefer DATABASE_URL_TEST so tests never touch dev DB.
+  DATABASE_URL:
+    process.env.NODE_ENV === "test" && process.env.DATABASE_URL_TEST
+      ? process.env.DATABASE_URL_TEST
+      : isDev
+        ? optional("DATABASE_URL", "postgresql://localhost:5432/agencystarter")
+        : required("DATABASE_URL"),
 
   // JWT (dev default for local run; must set in production)
   JWT_SECRET: isDev ? optional("JWT_SECRET", "dev-secret-change-in-production") : required("JWT_SECRET"),

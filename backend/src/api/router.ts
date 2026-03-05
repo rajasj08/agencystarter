@@ -8,6 +8,7 @@ import { userRoutes } from "../modules/users/user.routes.js";
 import { notificationsRoutes } from "../modules/notifications/notifications.routes.js";
 import { platformRoutes } from "../modules/platform/platform.routes.js";
 import { auditLogRoutes } from "../modules/audit-logs/audit-log.routes.js";
+import { apiKeyRoutes } from "../modules/api-keys/api-key.routes.js";
 import { rolesRoutes } from "../modules/roles/roles.routes.js";
 import { superadminRoutes } from "../modules/superadmin/superadmin.routes.js";
 
@@ -28,6 +29,7 @@ apiRouter.use("/users", userRoutes);
 apiRouter.use("/notifications", notificationsRoutes);
 apiRouter.use("/platform", platformRoutes);
 apiRouter.use("/audit-logs", auditLogRoutes);
+apiRouter.use("/api-keys", apiKeyRoutes);
 apiRouter.use("/roles", rolesRoutes);
 apiRouter.use("/superadmin", superadminRoutes);
 

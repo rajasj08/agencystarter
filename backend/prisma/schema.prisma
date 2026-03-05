@@ -62,9 +62,10 @@ model Agency {
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
-  plan   Plan?   @relation(fields: [planId], references: [id], onDelete: SetNull)
-  users  User[]
-  roles  Role[]
+  plan    Plan?    @relation(fields: [planId], references: [id], onDelete: SetNull)
+  users   User[]
+  roles   Role[]
+  apiKeys ApiKey[]
   subscriptions Subscription[]
 }
 
@@ -165,6 +166,22 @@ model Session {
   createdAt     DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Machine-to-machine auth. agencyId null = platform (superadmin) key; else tenant key.
+model ApiKey {
+  id            String    @id @default(cuid())
+  agencyId      String?
+  name          String?   // Optional label for the key
+  keyHash       String    // Hashed secret (never store plaintext)
+  permissionKeys Json     // Array of permission keys, e.g. ["user:read", "user:list"]
+  expiresAt     DateTime?
+  lastUsedAt    DateTime?
+  revokedAt     DateTime?
+  createdById   String
+  createdAt     DateTime  @default(now())
+
+  agency Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 }
 
 model EmailVerification {

@@ -117,6 +117,26 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
+  /** Find session by id with user (for ownership/agency check). */
+  findSessionById(id: string) {
+    return this.prisma.session.findUnique({
+      where: { id },
+      include: { user: { select: { id: true, agencyId: true } } },
+    });
+  }
+
+  /** List active sessions for all users in an agency (tenant admin). */
+  findSessionsByAgencyId(agencyId: string) {
+    return this.prisma.session.findMany({
+      where: {
+        user: { agencyId, deletedAt: null },
+        expiresAt: { gt: new Date() },
+      },
+      include: { user: { select: { id: true, email: true, displayName: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   deleteSessionsByUserIdExcept(userId: string, exceptSessionId: string | null) {
     const where: { userId: string; id?: { not: string } } = { userId };
     if (exceptSessionId) where.id = { not: exceptSessionId };

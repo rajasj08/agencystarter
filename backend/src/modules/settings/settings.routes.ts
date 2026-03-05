@@ -2,6 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import { authMiddleware } from "../../middleware/auth.js";
 import { requireTenant } from "../../middleware/tenant.js";
+import { tenantIpGuard } from "../../middleware/tenantIpGuard.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { PERMISSIONS } from "../../constants/permissions.js";
 import { SettingsController } from "./settings.controller.js";
@@ -12,6 +13,7 @@ const controller = new SettingsController();
 // Order: auth → tenant → permission.
 router.use(authMiddleware);
 router.use(requireTenant);
+router.use(asyncHandler(tenantIpGuard));
 
 router.get("/", requirePermission(PERMISSIONS.SETTINGS_READ, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.get.bind(controller)));
 router.patch("/", requirePermission(PERMISSIONS.SETTINGS_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.update.bind(controller)));
