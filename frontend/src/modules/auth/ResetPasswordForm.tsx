@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AuthLayout } from "@/layouts/AuthLayout";
-import { AppCard, AppButton } from "@/components/design";
+import { AuthCard, AppButton } from "@/components/design";
 import {
   FormProviderWrapper,
   FormPassword,
@@ -39,12 +39,12 @@ function ResetPasswordContent() {
   if (done) {
     return (
       <AuthLayout>
-        <AppCard title="Password reset">
+        <AuthCard title="Password reset">
           <p className="text-text-secondary">Your password has been reset. You can now sign in.</p>
           <Link href={ROUTES.LOGIN}>
             <AppButton className="mt-4">Sign in</AppButton>
           </Link>
-        </AppCard>
+        </AuthCard>
       </AuthLayout>
     );
   }
@@ -52,19 +52,19 @@ function ResetPasswordContent() {
   if (!token) {
     return (
       <AuthLayout>
-        <AppCard title="Invalid link">
+        <AuthCard title="Invalid link">
           <p className="text-danger">Missing or invalid reset token.</p>
           <Link href={ROUTES.FORGOT_PASSWORD} className="text-primary font-medium mt-4 inline-block">
             Request a new link
           </Link>
-        </AppCard>
+        </AuthCard>
       </AuthLayout>
     );
   }
 
   return (
     <AuthLayout>
-      <AppCard
+      <AuthCard
         title="Set new password"
         footer={
           <AppButton
@@ -82,7 +82,7 @@ function ResetPasswordContent() {
           <FormPassword name="password" label="auth.password" autoComplete="new-password" />
           <FormPasswordConfirm name="confirmPassword" label="auth.confirmPassword" />
         </FormProviderWrapper>
-      </AppCard>
+      </AuthCard>
     </AuthLayout>
   );
 }
@@ -92,9 +92,9 @@ export function ResetPasswordForm() {
     <Suspense
       fallback={
         <AuthLayout>
-          <AppCard>
+          <AuthCard>
             <p className="text-text-secondary">Loading…</p>
-          </AppCard>
+          </AuthCard>
         </AuthLayout>
       }
     >

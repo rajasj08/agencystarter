@@ -1,7 +1,6 @@
 import { ROLES } from "../../constants/roles.js";
-import { prisma } from "../../lib/prisma.js";
+import { agencyRepository as agencyRepo, userRepository } from "../../lib/data-access.js";
 import { BaseService } from "../../core/BaseService.js";
-import { AgencyRepository } from "./agency.repository.js";
 import { RolesService } from "../roles/roles.service.js";
 import { AppError } from "../../errors/AppError.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
@@ -9,7 +8,6 @@ import { get as getSystemConfig } from "../../services/SystemConfigCache.js";
 import { getPlanByCodeCached, getPlansCached } from "../../services/PlanCache.js";
 import type { CreateAgencyInput } from "./agency.validation.js";
 
-const agencyRepo = new AgencyRepository(prisma);
 const rolesService = new RolesService();
 
 export class AgencyService extends BaseService {
@@ -30,10 +28,7 @@ export class AgencyService extends BaseService {
     const planId = freePlan?.id ?? null;
     const agency = await agencyRepo.create({ ...input, planId });
     const { roleAgencyAdminId } = await rolesService.ensureAgencyRoles(agency.id);
-    await prisma.user.update({
-      where: { id: userId },
-      data: { agencyId: agency.id, roleId: roleAgencyAdminId },
-    });
+    await userRepository.updateAgencyAndRoleForOnboarding(userId, agency.id, roleAgencyAdminId);
     await agencyRepo.setOnboardingCompleted(agency.id);
     return agency;
   }

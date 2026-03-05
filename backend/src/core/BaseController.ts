@@ -83,6 +83,16 @@ export abstract class BaseController {
   }
 
   /**
+   * Parse sortBy and sortOrder from query. Returns undefined values if not present or invalid.
+   */
+  protected getSort(req: Request): { sortBy?: string; sortOrder?: "asc" | "desc" } {
+    const query = this.getQuery<{ sortBy?: string; sortOrder?: string }>(req);
+    const sortOrder = query.sortOrder === "asc" || query.sortOrder === "desc" ? query.sortOrder : undefined;
+    const sortBy = typeof query.sortBy === "string" && query.sortBy.trim() !== "" ? query.sortBy.trim() : undefined;
+    return { sortBy, sortOrder };
+  }
+
+  /**
    * Send paginated list response: data array + meta (total, page, limit, pages).
    */
   protected paginated<T>(

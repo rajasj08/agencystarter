@@ -10,7 +10,8 @@ export class AuditLogController extends BaseController {
   list = async (req: AuthRequest, res: Response): Promise<void> => {
     const agencyId = req.user!.agencyId!;
     const { page, limit, offset } = this.getPagination(req);
-    const { data, total } = await service.list(agencyId, { page, limit, offset });
+    const { sortBy, sortOrder } = this.getSort(req);
+    const { data, total } = await service.list(agencyId, { page, limit, offset, sortBy, sortOrder });
     this.paginated(res, data, total, { page, limit }, RESPONSE_CODES.FETCHED);
   };
 }

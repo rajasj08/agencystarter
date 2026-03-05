@@ -1,9 +1,8 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { prisma } from "../../lib/prisma.js";
+import { authRepository as authRepo, agencyRepository, roleRepository as roleRepo, getPrismaForInternalUse } from "../../lib/data-access.js";
 import { BaseService } from "../../core/BaseService.js";
-import { AuthRepository } from "./auth.repository.js";
 import { AppError } from "../../errors/AppError.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
 import { RESPONSE_CODES } from "../../constants/responseCodes.js";
@@ -26,10 +25,8 @@ import type {
   ChangePasswordInput,
   UpdateProfileInput,
 } from "./auth.validation.js";
-import { RoleRepository } from "../roles/role.repository.js";
-
-const authRepo = new AuthRepository(prisma);
-const roleRepo = new RoleRepository(prisma);
+import { getPermissionsForUser, type RequestPermissionCache } from "./permission-resolver.js";
+import { PERMISSION_VERSION } from "../../constants/permissionVersion.js";
 
 export interface JwtPayload {
   userId: string;
@@ -37,10 +34,14 @@ export interface JwtPayload {
   role: string;
   /** Role id for permission lookup (cache/DB). Omitted for SUPER_ADMIN in impersonation. */
   roleId?: string | null;
+  /** Snapshot of role.permissionsVersion at login; used to invalidate sessions when role permissions change. */
+  permissionSnapshotVersion?: number;
   /** True when role is SUPER_ADMIN. Enables fast checks without string comparison. */
   isSuperAdmin?: boolean;
   /** True when a SUPER_ADMIN is acting in the context of another agency (impersonation). */
   impersonation?: boolean;
+  /** Token scope: platform = superadmin only, tenant = agency-scoped (incl. impersonation). Prevents privilege bleed. */
+  scope?: "platform" | "tenant";
 }
 
 export class AuthService extends BaseService {
@@ -49,10 +50,15 @@ export class AuthService extends BaseService {
   }
 
   private createAccessToken(payload: JwtPayload): string {
+    const isSuperAdmin = payload.role === ROLES.SUPER_ADMIN;
+    const scope: "platform" | "tenant" =
+      isSuperAdmin && !payload.impersonation ? "platform" : "tenant";
     const toSign: JwtPayload = {
       ...payload,
       roleId: payload.roleId ?? undefined,
-      isSuperAdmin: payload.role === ROLES.SUPER_ADMIN,
+      permissionSnapshotVersion: payload.permissionSnapshotVersion ?? undefined,
+      isSuperAdmin,
+      scope,
     };
     return jwt.sign(toSign, env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
   }
@@ -113,17 +119,26 @@ export class AuthService extends BaseService {
       expiresAt,
     });
     const { role, roleId } = this.roleNameAndId(user);
+    const roleVersion = user.roleRef?.permissionsVersion ?? 1;
+    await authRepo.updatePermissionSnapshotVersion(user.id, roleVersion);
     const accessToken = this.createAccessToken({
       userId: user.id,
       agencyId: user.agencyId,
       role,
       roleId,
+      permissionSnapshotVersion: roleVersion,
     });
+    const requestCache: RequestPermissionCache = new Map();
+    const permissionsSet = await getPermissionsForUser(user, requestCache);
+    const permissions = Array.from(permissionsSet);
+    const sanitized = this.sanitizeUser(user);
     return {
       accessToken,
       refreshToken,
       expiresIn: 900,
-      user: this.sanitizeUser(user),
+      user: { ...sanitized, isSuperAdmin: role === ROLES.SUPER_ADMIN },
+      permissions,
+      permissionVersion: PERMISSION_VERSION,
     };
   }
 
@@ -171,17 +186,26 @@ export class AuthService extends BaseService {
       expiresAt,
     });
     const { role, roleId } = this.roleNameAndId(user);
+    const roleVersion = user.roleRef?.permissionsVersion ?? 1;
+    await authRepo.updatePermissionSnapshotVersion(user.id, roleVersion);
     const accessToken = this.createAccessToken({
       userId: user.id,
       agencyId: user.agencyId,
       role,
       roleId,
+      permissionSnapshotVersion: roleVersion,
     });
+    const requestCache: RequestPermissionCache = new Map();
+    const permissionsSet = await getPermissionsForUser(user, requestCache);
+    const permissions = Array.from(permissionsSet);
+    const sanitized = this.sanitizeUser(user);
     return {
       accessToken,
       refreshToken,
       expiresIn: 900,
-      user: this.sanitizeUser(user),
+      user: { ...sanitized, isSuperAdmin: role === ROLES.SUPER_ADMIN },
+      permissions,
+      permissionVersion: PERMISSION_VERSION,
     };
   }
 
@@ -198,16 +222,25 @@ export class AuthService extends BaseService {
       throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID, "Invalid session", 401);
     }
     const { role, roleId } = this.roleNameAndId(user);
+    const roleVersion = user.roleRef?.permissionsVersion ?? 1;
+    await authRepo.updatePermissionSnapshotVersion(user.id, roleVersion);
     const accessToken = this.createAccessToken({
       userId: user.id,
       agencyId: user.agencyId,
       role,
       roleId,
+      permissionSnapshotVersion: roleVersion,
     });
+    const requestCache: RequestPermissionCache = new Map();
+    const permissionsSet = await getPermissionsForUser(user, requestCache);
+    const permissions = Array.from(permissionsSet);
+    const sanitized = this.sanitizeUser(user);
     return {
       accessToken,
       expiresIn: 900,
-      user: this.sanitizeUser(user),
+      user: { ...sanitized, isSuperAdmin: role === ROLES.SUPER_ADMIN },
+      permissions,
+      permissionVersion: PERMISSION_VERSION,
     };
   }
 
@@ -249,7 +282,8 @@ export class AuthService extends BaseService {
       throw new AppError(ERROR_CODES.PASSWORD_RESET_EXPIRED, "Invalid or expired reset link", 400);
     }
     const passwordHash = await bcrypt.hash(input.password, 12);
-    await prisma.$transaction(async (tx) => {
+    const prisma = getPrismaForInternalUse();
+    await prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
       await tx.user.update({
         where: { id: reset.userId },
         data: { passwordHash },
@@ -270,9 +304,27 @@ export class AuthService extends BaseService {
   verifyAccessToken(token: string): JwtPayload {
     try {
       return jwt.verify(token, env.JWT_SECRET) as JwtPayload;
-    } catch {
+    } catch (err) {
+      if (err && typeof err === "object" && "name" in err && err.name === "TokenExpiredError") {
+        throw new AppError(ERROR_CODES.AUTH_TOKEN_EXPIRED, "Token expired. Please sign in again.", 401);
+      }
       throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID, "Invalid or expired token", 401);
     }
+  }
+
+  /**
+   * Verifies token and ensures permission snapshot version matches role (invalidates session when role permissions changed).
+   */
+  async verifyAccessTokenWithPermissionCheck(token: string): Promise<JwtPayload> {
+    const payload = this.verifyAccessToken(token);
+    if (payload.roleId != null) {
+      const role = await roleRepo.findRoleById(payload.roleId);
+      const snapshotVersion = payload.permissionSnapshotVersion ?? 0;
+      if (role && role.permissionsVersion !== snapshotVersion) {
+        throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID, "Permissions updated. Please re-login.", 401);
+      }
+    }
+    return payload;
   }
 
   async getMe(
@@ -283,19 +335,32 @@ export class AuthService extends BaseService {
     if (!user) {
       throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     }
+    const { role } = this.roleNameAndId(user);
+    const requestCache: RequestPermissionCache = new Map();
+    const permissionsSet = await getPermissionsForUser(user, requestCache);
+    const permissions = Array.from(permissionsSet);
     const sanitized = this.sanitizeUser(user);
+    const userPayload = {
+      ...sanitized,
+      isSuperAdmin: role === ROLES.SUPER_ADMIN,
+    };
     if (context?.impersonation && context?.agencyId && user.agencyId !== context.agencyId) {
-      const agency = await prisma.agency.findUnique({
-        where: { id: context.agencyId },
-        select: { id: true, name: true },
-      });
+      const agency = await agencyRepository.findById(context.agencyId);
       return {
-        ...sanitized,
-        impersonation: true,
-        impersonatingAgency: agency ? { id: agency.id, name: agency.name } : null,
+        user: {
+          ...userPayload,
+          impersonation: true,
+          impersonatingAgency: agency ? { id: agency.id, name: agency.name } : null,
+        },
+        permissions,
+        permissionVersion: PERMISSION_VERSION,
       };
     }
-    return { ...sanitized, impersonation: false, impersonatingAgency: null };
+    return {
+      user: { ...userPayload, impersonation: false, impersonatingAgency: null },
+      permissions,
+      permissionVersion: PERMISSION_VERSION,
+    };
   }
 
   async changePassword(userId: string, input: ChangePasswordInput) {

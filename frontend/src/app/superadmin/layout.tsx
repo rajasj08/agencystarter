@@ -2,9 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/auth";
+import { useAuthStore, isSuperAdminUser } from "@/store/auth";
 import { ROUTES } from "@/constants/routes";
-import { ROLES } from "@/constants/permissions";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { SuperadminSidebar } from "@/layout/SuperadminSidebar";
 import { SuperadminHeader } from "@/layout/SuperadminHeader";
@@ -27,12 +26,12 @@ export default function SuperadminLayout({
       router.replace(ROUTES.LOGIN);
       return;
     }
-    if (user && user.role !== ROLES.SUPER_ADMIN) {
+    if (user && !isSuperAdminUser(user)) {
       router.replace(ROUTES.DASHBOARD);
     }
   }, [user, accessToken, hydrated, router]);
 
-  if (!hydrated || !user || user.role !== ROLES.SUPER_ADMIN) {
+  if (!hydrated || !user || !isSuperAdminUser(user)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-text-secondary">Loading…</p>

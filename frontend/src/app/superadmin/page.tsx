@@ -10,7 +10,7 @@ export default function SuperadminOverviewPage() {
   const [settings, setSettings] = useState<Awaited<ReturnType<typeof getSystemSettings>> | null>(null);
 
   useEffect(() => {
-    getAgencies().then((list) => setAgencyCount(list.length));
+    getAgencies().then(({ data }) => setAgencyCount(data.length));
     getSystemSettings().then(setSettings);
   }, []);
 

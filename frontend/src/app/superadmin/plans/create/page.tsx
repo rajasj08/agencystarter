@@ -6,7 +6,7 @@ import { AppCard, AppButton } from "@/components/design";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormProviderWrapper, FormInput, FormRootError } from "@/components/forms";
 import { useAppForm } from "@/components/forms/useAppForm";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, type Path } from "react-hook-form";
 import { z } from "zod";
 import { setFormApiError } from "@/lib/formErrors";
 import { createPlan, type PlanCreateInput, PLAN_FEATURE_KEYS } from "@/services/superadmin";
@@ -212,7 +212,7 @@ function ToggleSwitch({
   return (
     <label className="relative inline-flex cursor-pointer items-center">
       <input type="checkbox" id={id} className="peer sr-only" {...rest} />
-      <div className="peer h-6 w-11 rounded-full border border-border bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-focus:ring-2 peer-focus:ring-primary/30" />
+      <div className="peer h-6 w-11 rounded-full border border-border bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-focus:ring-1 peer-focus:ring-primary/30" />
     </label>
   );
 }
@@ -222,7 +222,7 @@ function FeatureToggle({ name, label }: { name: string; label: string }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
       <span className="text-sm text-text-primary">{label}</span>
-      <ToggleSwitch id={name} {...register(name)} />
+      <ToggleSwitch id={name} {...register(name as Path<FormValues>)} />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AppCard, AppButton } from "@/components/design";
+import { AuthCard, AppButton } from "@/components/design";
 import { FormProviderWrapper, FormInput, FormRootError } from "@/components/forms";
 import { useAppForm } from "@/components/forms/useAppForm";
 import { forgotPasswordSchema, type ForgotPasswordFormValues } from "@/validations/auth";
@@ -30,19 +30,19 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <AppCard title="Check your email">
+      <AuthCard title="Check your email">
         <p className="text-text-secondary">
           If an account exists for <strong>{email}</strong>, you will receive a password reset link.
         </p>
         <Link href={ROUTES.LOGIN} className="text-primary font-medium mt-4 inline-block">
           Back to login
         </Link>
-      </AppCard>
+      </AuthCard>
     );
   }
 
   return (
-    <AppCard
+    <AuthCard
       title="Forgot password"
       description="Enter your email to receive a reset link."
       footer={
@@ -65,6 +65,6 @@ export function ForgotPasswordForm() {
           </Link>
         </p>
       </FormProviderWrapper>
-    </AppCard>
+    </AuthCard>
   );
 }

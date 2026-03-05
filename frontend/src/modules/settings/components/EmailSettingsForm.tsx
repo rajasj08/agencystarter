@@ -192,7 +192,7 @@ export function EmailSettingsForm() {
                 value={testEmailTo}
                 onChange={(e) => setTestEmailTo(e.target.value)}
                 placeholder="you@example.com"
-                className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <AppButton variant="outline" type="button" onClick={handleSendTest} loading={sendingTest} disabled={sendingTest}>

@@ -16,6 +16,10 @@ export const PERMISSIONS = {
   AGENCY_LIST: "agency:list",
   SETTINGS_READ: "settings:read",
   SETTINGS_UPDATE: "settings:update",
+  ROLE_CREATE: "role:create",
+  ROLE_READ: "role:read",
+  ROLE_UPDATE: "role:update",
+  ROLE_DELETE: "role:delete",
   ADMIN_ALL: "admin:all",
 } as const;
 
@@ -30,25 +34,7 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
-/** Role -> permissions. SUPER_ADMIN has ADMIN_ALL which implies every permission. */
-export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  [ROLES.SUPER_ADMIN]: [PERMISSIONS.ADMIN_ALL],
-  [ROLES.AGENCY_ADMIN]: [
-    PERMISSIONS.USER_CREATE,
-    PERMISSIONS.USER_READ,
-    PERMISSIONS.USER_UPDATE,
-    PERMISSIONS.USER_DELETE,
-    PERMISSIONS.USER_LIST,
-    PERMISSIONS.AGENCY_READ,
-    PERMISSIONS.AGENCY_UPDATE,
-    PERMISSIONS.SETTINGS_READ,
-    PERMISSIONS.SETTINGS_UPDATE,
-  ],
-  [ROLES.AGENCY_MEMBER]: [
-    PERMISSIONS.USER_READ,
-    PERMISSIONS.USER_LIST,
-    PERMISSIONS.AGENCY_READ,
-    PERMISSIONS.SETTINGS_READ,
-  ],
-  [ROLES.USER]: [PERMISSIONS.USER_READ],
-};
+/**
+ * Permissions come from backend only (login / me). No frontend derivation.
+ * ROLES and PERMISSIONS are for display and constant reference only.
+ */

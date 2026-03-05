@@ -1,3 +1,11 @@
+/**
+ * Prisma client singleton. This module is the only place that creates the client.
+ *
+ * Application code (services, controllers) must NOT import prisma from here.
+ * Use lib/data-access.js instead: it exports repository instances and getPrismaForInternalUse()
+ * for the few allowed internal callers (caches, seed scripts, transactions). Wrapping access
+ * through data-access ensures all tenant-scoped reads go through scoped repositories.
+ */
 import { PrismaClient } from "@prisma/client";
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";

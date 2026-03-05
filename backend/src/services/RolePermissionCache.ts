@@ -4,7 +4,7 @@
  * Load from DB on cache miss; no invalidation (restart or refresh() to pick up changes).
  */
 
-import { prisma } from "../lib/prisma.js";
+import { getPrismaForInternalUse } from "../lib/data-access.js";
 
 const cache = new Map<string, Set<string>>();
 
@@ -21,6 +21,7 @@ export function invalidateRole(roleId: string): void {
 }
 
 export async function loadPermissionKeysForRole(roleId: string): Promise<Set<string>> {
+  const prisma = getPrismaForInternalUse();
   const rows = await prisma.rolePermission.findMany({
     where: { roleId },
     select: { permission: { select: { key: true } } },
@@ -44,6 +45,7 @@ export async function getPermissionKeysForRole(roleId: string): Promise<Set<stri
  */
 export async function refresh(): Promise<void> {
   cache.clear();
+  const prisma = getPrismaForInternalUse();
   const rolePerms = await prisma.rolePermission.findMany({
     select: { roleId: true, permission: { select: { key: true } } },
   });

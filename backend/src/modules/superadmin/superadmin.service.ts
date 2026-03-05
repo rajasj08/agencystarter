@@ -1,4 +1,13 @@
-import { prisma } from "../../lib/prisma.js";
+import {
+  agencyRepository,
+  userRepository,
+  plansRepository,
+  auditLogRepository,
+  roleRepository as roleRepo,
+  superadminSystemSettingsRepository as systemSettingsRepo,
+  authRepository,
+  getPrismaForInternalUse,
+} from "../../lib/data-access.js";
 import { AuthService } from "../auth/auth.service.js";
 import { ROLES } from "../../constants/roles.js";
 import { AppError } from "../../errors/AppError.js";
@@ -10,7 +19,6 @@ import { getUptimeSeconds } from "../../utils/uptime.js";
 import { API_VERSION } from "../../config/version.js";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { SuperadminSystemSettingsRepository } from "./superadmin-system-settings.repository.js";
 import type {
   SystemSettingsUpdateInput,
   CreateAgencyInput,
@@ -22,14 +30,11 @@ import type {
 } from "./superadmin.validation.js";
 import { PAGINATION, clampLimit, clampPage } from "../../constants/pagination.js";
 import { UserService } from "../users/user.service.js";
-import { RoleRepository } from "../roles/role.repository.js";
 import { RolesService } from "../roles/roles.service.js";
 
-const systemSettingsRepo = new SuperadminSystemSettingsRepository(prisma);
 const authService = new AuthService();
 const userService = new UserService();
 const rolesService = new RolesService();
-const roleRepo = new RoleRepository(prisma);
 
 export interface SystemSettingsDTO {
   allowRegistration: boolean;
@@ -136,20 +141,16 @@ export class SuperadminService {
     const page = clampPage(params.page ?? PAGINATION.DEFAULT_PAGE);
     const limit = clampLimit(params.limit ?? PAGINATION.DEFAULT_LIMIT);
     const offset = (page - 1) * limit;
-    const sortBy = params.sortBy === "name" ? "name" : "createdAt";
+    const allowedAgencySort = ["name", "slug", "status", "createdAt", "updatedAt"] as const;
+    const sortBy = params.sortBy && allowedAgencySort.includes(params.sortBy as (typeof allowedAgencySort)[number])
+      ? params.sortBy
+      : "createdAt";
     const order = params.order === "asc" ? "asc" : "desc";
 
+    // Platform scope: explicitly no agencyId filter (superadmin lists all agencies).
     const [agencies, total] = await Promise.all([
-      prisma.agency.findMany({
-        orderBy: { [sortBy]: order },
-        skip: offset,
-        take: limit,
-        include: {
-          _count: { select: { users: true } },
-          plan: { select: { name: true, code: true } },
-        },
-      }),
-      prisma.agency.count(),
+      agencyRepository.listWithPlanAndCount({ [sortBy]: order }, offset, limit),
+      agencyRepository.countAll(),
     ]);
 
     const data: AgencyListItemDTO[] = agencies.map((a) => ({
@@ -168,17 +169,11 @@ export class SuperadminService {
   }
 
   async getAgencyById(agencyId: string): Promise<AgencyListItemDTO | null> {
-    const agency = await prisma.agency.findUnique({
-      where: { id: agencyId },
-      include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
-    });
+    const agency = await agencyRepository.findByIdWithPlanAndCount(agencyId);
     if (!agency) return null;
     let updatedBy: AgencyEditorDTO | null = null;
     if (agency.updatedById) {
-      const user = await prisma.user.findUnique({
-        where: { id: agency.updatedById },
-        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
-      });
+      const user = await userRepository.findUserDisplayById(agency.updatedById);
       if (user) {
         const name =
           user.displayName?.trim() ||
@@ -202,98 +197,85 @@ export class SuperadminService {
   }
 
   async createAgency(req: AuthRequest, input: CreateAgencyInput): Promise<AgencyListItemDTO> {
-    const existingSlug = await prisma.agency.findUnique({ where: { slug: input.slug } });
+    const existingSlug = await agencyRepository.findBySlug(input.slug);
     if (existingSlug) {
       throw new AppError(ERROR_CODES.AGENCY_ALREADY_EXISTS, "Agency with this slug already exists", 409);
     }
-    const existingEmail = await prisma.user.findUnique({ where: { email: input.adminEmail.toLowerCase() } });
+    const existingEmail = await authRepository.findByEmail(input.adminEmail.toLowerCase());
     if (existingEmail) {
       throw new AppError(ERROR_CODES.USER_ALREADY_EXISTS, "User with this email already exists", 409);
     }
-    const plan = await prisma.plan.findUnique({ where: { id: input.planId } });
+    const plan = await plansRepository.findById(input.planId);
     if (!plan) throw new AppError(ERROR_CODES.PLAN_NOT_FOUND, "Plan not found", 404);
     if (!plan.isActive) throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Plan is not active", 403);
 
     const passwordHash = await bcrypt.hash(input.adminPassword, 12);
-    const agency = await prisma.agency.create({
-      data: {
-        name: input.name,
-        slug: input.slug,
-        planId: input.planId,
-        onboardingCompleted: true,
-      },
-      include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
+    const created = await agencyRepository.create({
+      name: input.name,
+      slug: input.slug,
+      planId: input.planId,
+      onboardingCompleted: true,
     });
-    const { roleAgencyAdminId } = await rolesService.ensureAgencyRoles(agency.id);
-    await prisma.user.create({
-      data: {
-        email: input.adminEmail.toLowerCase(),
-        passwordHash,
-        displayName: input.adminName ?? null,
-        roleId: roleAgencyAdminId,
-        status: "ACTIVE",
-        agencyId: agency.id,
-      },
+    const { roleAgencyAdminId } = await rolesService.ensureAgencyRoles(created.id);
+    await userRepository.create({
+      email: input.adminEmail.toLowerCase(),
+      passwordHash,
+      displayName: input.adminName ?? null,
+      roleId: roleAgencyAdminId,
+      status: "ACTIVE",
+      agencyId: created.id,
     });
 
     await audit(req, {
       action: "SUPERADMIN_ACTION",
       resource: "agency",
-      resourceId: agency.id,
-      details: { action: "AGENCY_CREATE", agencyName: agency.name, adminEmail: input.adminEmail },
+      resourceId: created.id,
+      details: { action: "AGENCY_CREATE", agencyName: created.name, adminEmail: input.adminEmail },
     });
 
+    const agency = await agencyRepository.findByIdWithPlanAndCount(created.id);
     return {
-      id: agency.id,
-      name: agency.name,
-      slug: agency.slug,
-      status: agency.status,
-      planName: agency.plan?.name ?? null,
-      planCode: agency.plan?.code ?? null,
-      createdAt: agency.createdAt,
-      updatedAt: agency.updatedAt,
+      id: agency!.id,
+      name: agency!.name,
+      slug: agency!.slug,
+      status: agency!.status,
+      planName: agency!.plan?.name ?? null,
+      planCode: agency!.plan?.code ?? null,
+      createdAt: agency!.createdAt,
+      updatedAt: agency!.updatedAt,
       updatedBy: null,
-      userCount: agency._count.users,
+      userCount: agency!._count.users,
     };
   }
 
   async updateAgency(req: AuthRequest, agencyId: string, input: UpdateAgencyInput): Promise<AgencyListItemDTO> {
-    const agency = await prisma.agency.findUnique({
-      where: { id: agencyId },
-      include: { _count: { select: { users: true } }, plan: { select: { name: true } } },
-    });
+    const agency = await agencyRepository.findByIdWithPlanAndCount(agencyId);
     if (!agency) throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
 
     if (input.planId !== undefined && input.planId !== null) {
-      const plan = await prisma.plan.findUnique({ where: { id: input.planId } });
+      const plan = await plansRepository.findById(input.planId);
       if (!plan) throw new AppError(ERROR_CODES.PLAN_NOT_FOUND, "Plan not found", 404);
       if (!plan.isActive) throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Plan is not active", 403);
     }
 
-    const updated = await prisma.agency.update({
-      where: { id: agencyId },
-      data: {
-        ...(input.name !== undefined && { name: input.name }),
-        ...(input.planId !== undefined && { planId: input.planId }),
-        ...(input.status !== undefined && { status: input.status }),
-        updatedById: req.user!.userId,
-      },
-      include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
+    await agencyRepository.updatePartial(agencyId, {
+      ...(input.name !== undefined && { name: input.name }),
+      ...(input.planId !== undefined && { planId: input.planId }),
+      ...(input.status !== undefined && { status: input.status }),
+      updatedById: req.user!.userId,
     });
+    const updated = await agencyRepository.findByIdWithPlanAndCount(agencyId);
 
     await audit(req, {
       action: "SUPERADMIN_ACTION",
       resource: "agency",
       resourceId: agencyId,
-      details: { action: "AGENCY_UPDATE", agencyName: updated.name, input: input as Record<string, unknown> },
+      details: { action: "AGENCY_UPDATE", agencyName: updated!.name, input: input as Record<string, unknown> },
     });
 
     let updatedBy: AgencyEditorDTO | null = null;
-    if (updated.updatedById) {
-      const user = await prisma.user.findUnique({
-        where: { id: updated.updatedById },
-        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
-      });
+    if (updated!.updatedById) {
+      const user = await userRepository.findUserDisplayById(updated!.updatedById);
       if (user) {
         const name =
           user.displayName?.trim() ||
@@ -303,33 +285,27 @@ export class SuperadminService {
       }
     }
     return {
-      id: updated.id,
-      name: updated.name,
-      slug: updated.slug,
-      status: updated.status,
-      planName: updated.plan?.name ?? null,
-      planCode: updated.plan?.code ?? null,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
+      id: updated!.id,
+      name: updated!.name,
+      slug: updated!.slug,
+      status: updated!.status,
+      planName: updated!.plan?.name ?? null,
+      planCode: updated!.plan?.code ?? null,
+      createdAt: updated!.createdAt,
+      updatedAt: updated!.updatedAt,
       updatedBy,
-      userCount: updated._count.users,
+      userCount: updated!._count.users,
     };
   }
 
   async updateAgencyPlan(req: AuthRequest, agencyId: string, input: UpdateAgencyPlanInput): Promise<AgencyListItemDTO> {
-    const agency = await prisma.agency.findUnique({
-      where: { id: agencyId },
-      include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
-    });
+    const agency = await agencyRepository.findByIdWithPlanAndCount(agencyId);
     if (!agency) throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
-    const plan = await prisma.plan.findUnique({ where: { id: input.planId } });
+    const plan = await plansRepository.findById(input.planId);
     if (!plan) throw new AppError(ERROR_CODES.PLAN_NOT_FOUND, "Plan not found", 404);
     if (!plan.isActive) throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Plan is not active", 403);
-    const updated = await prisma.agency.update({
-      where: { id: agencyId },
-      data: { planId: input.planId, updatedById: req.user!.userId },
-      include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
-    });
+    await agencyRepository.updatePartial(agencyId, { planId: input.planId, updatedById: req.user!.userId });
+    const updated = await agencyRepository.findByIdWithPlanAndCount(agencyId);
     await audit(req, {
       action: "SUPERADMIN_ACTION",
       resource: "agency",
@@ -337,11 +313,8 @@ export class SuperadminService {
       details: { action: "AGENCY_PLAN_CHANGE", planId: input.planId, planCode: plan.code },
     });
     let updatedBy: AgencyEditorDTO | null = null;
-    if (updated.updatedById) {
-      const user = await prisma.user.findUnique({
-        where: { id: updated.updatedById },
-        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
-      });
+    if (updated!.updatedById) {
+      const user = await userRepository.findUserDisplayById(updated!.updatedById);
       if (user) {
         const name =
           user.displayName?.trim() ||
@@ -351,16 +324,16 @@ export class SuperadminService {
       }
     }
     return {
-      id: updated.id,
-      name: updated.name,
-      slug: updated.slug,
-      status: updated.status,
-      planName: updated.plan?.name ?? null,
-      planCode: updated.plan?.code ?? null,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
+      id: updated!.id,
+      name: updated!.name,
+      slug: updated!.slug,
+      status: updated!.status,
+      planName: updated!.plan?.name ?? null,
+      planCode: updated!.plan?.code ?? null,
+      createdAt: updated!.createdAt,
+      updatedAt: updated!.updatedAt,
       updatedBy,
-      userCount: updated._count.users,
+      userCount: updated!._count.users,
     };
   }
 
@@ -388,18 +361,12 @@ export class SuperadminService {
     agencyId: string,
     status: "ACTIVE" | "DISABLED" | "SUSPENDED" | "DELETED"
   ): Promise<AgencyListItemDTO> {
-    const agency = await prisma.agency.findUnique({
-      where: { id: agencyId },
-      include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
-    });
+    const agency = await agencyRepository.findByIdWithPlanAndCount(agencyId);
     if (!agency) {
       throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
     }
-    const updated = await prisma.agency.update({
-      where: { id: agencyId },
-      data: { status, updatedById: req.user!.userId },
-      include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
-    });
+    await agencyRepository.updatePartial(agencyId, { status, updatedById: req.user!.userId });
+    const updated = await agencyRepository.findByIdWithPlanAndCount(agencyId);
     await audit(req, {
       action: "AGENCY_STATUS_UPDATED",
       resource: "agency",
@@ -407,11 +374,8 @@ export class SuperadminService {
       details: { previousStatus: agency.status, newStatus: status, agencyName: agency.name },
     });
     let updatedBy: AgencyEditorDTO | null = null;
-    if (updated.updatedById) {
-      const user = await prisma.user.findUnique({
-        where: { id: updated.updatedById },
-        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
-      });
+    if (updated!.updatedById) {
+      const user = await userRepository.findUserDisplayById(updated!.updatedById);
       if (user) {
         const name =
           user.displayName?.trim() ||
@@ -421,21 +385,21 @@ export class SuperadminService {
       }
     }
     return {
-      id: updated.id,
-      name: updated.name,
-      slug: updated.slug,
-      status: updated.status,
-      planName: updated.plan?.name ?? null,
-      planCode: updated.plan?.code ?? null,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
+      id: updated!.id,
+      name: updated!.name,
+      slug: updated!.slug,
+      status: updated!.status,
+      planName: updated!.plan?.name ?? null,
+      planCode: updated!.plan?.code ?? null,
+      createdAt: updated!.createdAt,
+      updatedAt: updated!.updatedAt,
       updatedBy,
-      userCount: updated._count.users,
+      userCount: updated!._count.users,
     };
   }
 
   async impersonate(req: AuthRequest, agencyId: string): Promise<{ accessToken: string; expiresIn: number }> {
-    const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
+    const agency = await agencyRepository.findById(agencyId);
     if (!agency) {
       throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
     }
@@ -469,16 +433,13 @@ export class SuperadminService {
   async stopImpersonation(req: AuthRequest): Promise<{ accessToken: string; expiresIn: number }> {
     const userId = req.user!.userId;
     const effectiveAgencyId = req.user!.agencyId; // agency being left (impersonation context)
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { agencyId: true },
-    });
+    const user = await userRepository.findByIdForPlatform(userId);
     if (!user) {
       throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     }
     const accessToken = authService.createAccessTokenForVerify({
       userId,
-      agencyId: user.agencyId,
+      agencyId: user.agencyId ?? null,
       role: ROLES.SUPER_ADMIN,
     });
     await audit(req, {
@@ -501,10 +462,11 @@ export class SuperadminService {
     activeSessions: number;
     uptime: number;
   }> {
+    // Platform scope: counts across all tenants; no agencyId filter.
     const [agenciesCount, usersCount, activeSessions] = await Promise.all([
-      prisma.agency.count(),
-      prisma.user.count({ where: { deletedAt: null } }),
-      prisma.session.count({ where: { expiresAt: { gt: new Date() } } }),
+      agencyRepository.countAll(),
+      userRepository.countAllActive(),
+      getPrismaForInternalUse().session.count({ where: { expiresAt: { gt: new Date() } } }),
     ]);
     return {
       agenciesCount,
@@ -520,12 +482,8 @@ export class SuperadminService {
     version: string;
     memoryUsage: { heapUsed: number; heapTotal: number; rss: number };
   }> {
-    let databaseStatus: "ok" | "error" = "ok";
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-    } catch {
-      databaseStatus = "error";
-    }
+    const { checkDatabase } = await import("../../lib/data-access.js");
+    const databaseStatus = (await checkDatabase()) ? "ok" : "error";
     const mem = process.memoryUsage();
     return {
       databaseStatus,
@@ -539,9 +497,15 @@ export class SuperadminService {
     const page = clampPage(query.page ?? PAGINATION.DEFAULT_PAGE);
     const limit = clampLimit(query.limit ?? PAGINATION.DEFAULT_LIMIT);
     const offset = (page - 1) * limit;
-    const sortBy = query.sortBy ?? "createdAt";
     const order = query.order === "asc" ? "asc" : "desc";
+    const allowedSort: Array<"createdAt" | "email" | "role" | "status"> = ["createdAt", "email", "role", "status"];
+    const sortBy = query.sortBy && allowedSort.includes(query.sortBy) ? query.sortBy : "createdAt";
+    const orderBy =
+      sortBy === "role"
+        ? ({ roleRef: { name: order } } as const)
+        : ({ [sortBy]: order } as { createdAt?: "asc" | "desc"; email?: "asc" | "desc"; status?: "asc" | "desc" });
 
+    // Platform scope: explicitly no agencyId filter (superadmin lists all users). Never use agencyId: undefined for "all".
     const where = { deletedAt: null };
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
@@ -553,16 +517,12 @@ export class SuperadminService {
       ];
     }
 
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        orderBy: { [sortBy]: order },
-        skip: offset,
-        take: limit,
-        include: { agency: { select: { name: true } }, roleRef: { select: { name: true } } },
-      }),
-      prisma.user.count({ where }),
-    ]);
+    const { rows: users, total } = await userRepository.listAllForPlatform({
+      where,
+      orderBy,
+      skip: offset,
+      take: limit,
+    });
 
     const data: PlatformUserListItemDTO[] = users.map((u) => ({
       id: u.id,
@@ -577,10 +537,7 @@ export class SuperadminService {
   }
 
   async createUser(req: AuthRequest, input: CreateUserInput): Promise<PlatformUserListItemDTO> {
-    const agency = await prisma.agency.findUnique({
-      where: { id: input.agencyId },
-      select: { id: true, name: true, status: true },
-    });
+    const agency = await agencyRepository.findById(input.agencyId);
     if (!agency) throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
     if (agency.status !== "ACTIVE") {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot add user to a non-active agency", 403);
@@ -613,10 +570,7 @@ export class SuperadminService {
   }
 
   async getUserById(userId: string): Promise<PlatformUserDetailDTO | null> {
-    const user = await prisma.user.findFirst({
-      where: { id: userId, deletedAt: null },
-      include: { agency: { select: { id: true, name: true } }, roleRef: { select: { id: true, name: true } } },
-    });
+    const user = await userRepository.findByIdForPlatform(userId);
     if (!user) return null;
     const role = user.roleRef?.name ?? user.role ?? "USER";
     return {
@@ -640,12 +594,12 @@ export class SuperadminService {
     if (userId === req.user!.userId) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "You cannot disable your own account", 403);
     }
-    const user = await prisma.user.findFirst({ where: { id: userId, deletedAt: null }, include: { agency: { select: { name: true } }, roleRef: { select: { name: true } } } });
+    const user = await userRepository.findByIdForPlatform(userId);
     if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot be disabled", 403);
     }
-    await prisma.user.update({ where: { id: userId }, data: { status: "DISABLED" } });
+    await userRepository.updateByUserIdPlatform(userId, { status: "DISABLED" });
     await audit(req, {
       action: "SUPERADMIN_ACTION",
       resource: "user",
@@ -658,18 +612,18 @@ export class SuperadminService {
   }
 
   async enableUser(req: AuthRequest, userId: string): Promise<PlatformUserDetailDTO> {
-    const user = await prisma.user.findFirst({ where: { id: userId, deletedAt: null }, include: { roleRef: { select: { name: true } } } });
+    const user = await userRepository.findByIdForPlatform(userId);
     if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot be modified", 403);
     }
-    await prisma.user.update({ where: { id: userId }, data: { status: "ACTIVE" } });
+    await userRepository.updateByUserIdPlatform(userId, { status: "ACTIVE" });
     const updated = await this.getUserById(userId);
     return updated!;
   }
 
   async setUserRole(req: AuthRequest, userId: string, input: SetUserRoleInput): Promise<PlatformUserDetailDTO> {
-    const user = await prisma.user.findFirst({ where: { id: userId, deletedAt: null }, include: { roleRef: { select: { name: true } } } });
+    const user = await userRepository.findByIdForPlatform(userId);
     if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin role cannot be changed", 403);
@@ -679,20 +633,20 @@ export class SuperadminService {
     }
     const role = await roleRepo.findRoleByNameAndAgency(user.agencyId, input.role);
     if (!role) throw new AppError(ERROR_CODES.INTERNAL_ERROR, `Role ${input.role} not found for this agency.`, 500);
-    await prisma.user.update({ where: { id: userId }, data: { roleId: role.id } });
+    await userRepository.updateByUserIdPlatform(userId, { roleId: role.id });
     const updated = await this.getUserById(userId);
     return updated!;
   }
 
   async resetUserPassword(req: AuthRequest, userId: string): Promise<{ temporaryPassword: string }> {
-    const user = await prisma.user.findFirst({ where: { id: userId, deletedAt: null }, include: { roleRef: { select: { name: true } } } });
+    const user = await userRepository.findByIdForPlatform(userId);
     if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin password cannot be reset via this API", 403);
     }
     const temporaryPassword = crypto.randomBytes(8).toString("hex");
     const passwordHash = await bcrypt.hash(temporaryPassword, 12);
-    await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+    await userRepository.updateByUserIdPlatform(userId, { passwordHash });
     await audit(req, {
       action: "SUPERADMIN_ACTION",
       resource: "user",
@@ -703,19 +657,22 @@ export class SuperadminService {
     return { temporaryPassword };
   }
 
-  async getAuditLogs(options: { page: number; limit: number; offset: number }): Promise<{
+  async getAuditLogs(options: {
+    page: number;
+    limit: number;
+    offset: number;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+  }): Promise<{
     data: SuperadminAuditEntryDTO[];
     total: number;
   }> {
-    const [rows, total] = await Promise.all([
-      prisma.auditLog.findMany({
-        orderBy: { createdAt: "desc" },
-        skip: options.offset,
-        take: options.limit,
-        include: { user: { select: { email: true } } },
-      }),
-      prisma.auditLog.count(),
-    ]);
+    const { rows, total } = await auditLogRepository.listAllPlatform({
+      offset: options.offset,
+      limit: options.limit,
+      sortBy: options.sortBy,
+      sortOrder: options.sortOrder,
+    });
     const data: SuperadminAuditEntryDTO[] = rows.map((r) => ({
       id: r.id,
       action: r.action,

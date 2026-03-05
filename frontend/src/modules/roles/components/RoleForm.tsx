@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm, type FieldValues } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { FormProviderWrapper } from "@/components/forms";
@@ -44,7 +44,7 @@ export function RoleForm({ mode, initialData, onSubmit, loading = false }: RoleF
 
   return (
     <FormProviderWrapper
-      form={form as unknown as ReturnType<typeof useForm<FieldValues>>}
+      form={form}
       onSubmit={onSubmit}
       className="space-y-6"
     >

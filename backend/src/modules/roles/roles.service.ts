@@ -1,7 +1,6 @@
-import { prisma } from "../../lib/prisma.js";
+import { roleRepository as roleRepo, userRepository as userRepo, getPrismaForInternalUse } from "../../lib/data-access.js";
 import { audit } from "../../lib/audit.js";
 import type { AuthRequest } from "../../middleware/auth.js";
-import { RoleRepository } from "./role.repository.js";
 import { AppError } from "../../errors/AppError.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
 import { invalidateRole } from "../../services/RolePermissionCache.js";
@@ -11,8 +10,6 @@ import {
   AGENCY_MEMBER_PERMISSION_KEYS,
   USER_PERMISSION_KEYS,
 } from "../../constants/permissions.js";
-
-const roleRepo = new RoleRepository(prisma);
 
 export interface PermissionDTO {
   id: string;
@@ -75,9 +72,8 @@ export class RolesService {
   }
 
   async getRoleById(id: string, agencyId: string | null): Promise<RoleDetailDTO | null> {
-    const role = await roleRepo.findRoleById(id);
+    const role = await roleRepo.findRoleByIdAndAgency(id, agencyId);
     if (!role) return null;
-    if (role.agencyId !== agencyId) return null;
     return this.toRoleDetailDTO(role);
   }
 
@@ -90,16 +86,14 @@ export class RolesService {
   ): Promise<RoleDetailDTO> {
     const trimmedName = data.name.trim();
     if (!trimmedName) throw new AppError(ERROR_CODES.VALIDATION_ERROR, "Role name is required", 400);
-    if (callerRole !== ROLES.SUPER_ADMIN) {
-      await this.rejectSuperadminOnlyPermissions(data.permissionIds);
-    }
+      if (callerRole !== ROLES.SUPER_ADMIN) {
+        await this.rejectSuperadminOnlyPermissions(data.permissionIds, auditReq, undefined, agencyId);
+      }
     if (currentUserPermissionIds !== undefined) {
       this.validatePermissionIdsSubset(data.permissionIds, currentUserPermissionIds);
     }
     await this.validatePermissionIds(data.permissionIds);
-    const existing = await prisma.role.findFirst({
-      where: { name: trimmedName, agencyId },
-    });
+    const existing = await roleRepo.findRoleByNameAndAgency(trimmedName, agencyId);
     if (existing) throw new AppError(ERROR_CODES.VALIDATION_ERROR, "A role with this name already exists for this agency", 409);
     const role = await roleRepo.createRoleWithPermissions({
       name: trimmedName,
@@ -113,9 +107,11 @@ export class RolesService {
         resource: "role",
         resourceId: role.id,
         details: {
+          actorUserId: auditReq.user.userId,
+          targetRoleId: role.id,
+          agencyId,
           roleName: trimmedName,
-          permissionIds: data.permissionIds,
-          createdBy: auditReq.user.userId,
+          newPermissions: data.permissionIds,
         },
       });
     }
@@ -130,23 +126,36 @@ export class RolesService {
     callerRole?: string | null,
     auditReq?: AuthRequest | null
   ): Promise<RoleDetailDTO> {
-    const role = await roleRepo.findRoleById(roleId);
+    const role = await roleRepo.findRoleByIdAndAgency(roleId, agencyId);
     if (!role) throw new AppError(ERROR_CODES.NOT_FOUND, "Role not found", 404);
-    if (role.isSystem) throw new AppError(ERROR_CODES.PERMISSION_DENIED, "System roles cannot be edited", 403);
-    if (role.agencyId !== agencyId) throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Role does not belong to this agency", 403);
+    if (!role.isEditable) {
+      if (auditReq?.user?.userId) {
+        await audit(auditReq, {
+          action: "role.edit.denied",
+          resource: "role",
+          resourceId: roleId,
+          details: {
+            actorUserId: auditReq.user.userId,
+            targetRoleId: roleId,
+            agencyId,
+            roleName: role.name,
+            reason: "system_role_not_editable",
+          },
+        });
+      }
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "This role cannot be edited", 403);
+    }
     const userId = auditReq?.user?.userId ?? null;
     if (data.name !== undefined) {
       const trimmed = data.name.trim();
       if (!trimmed) throw new AppError(ERROR_CODES.VALIDATION_ERROR, "Role name is required", 400);
-      const existing = await prisma.role.findFirst({
-        where: { name: trimmed, agencyId, id: { not: roleId } },
-      });
+      const existing = await roleRepo.findRoleByNameAndAgencyExcludingId(trimmed, agencyId, roleId);
       if (existing) throw new AppError(ERROR_CODES.VALIDATION_ERROR, "A role with this name already exists for this agency", 409);
-      await roleRepo.updateRole(roleId, { name: trimmed, updatedById: userId });
+      await roleRepo.updateRoleScoped(roleId, agencyId, { name: trimmed, updatedById: userId });
     }
     if (data.permissionIds !== undefined) {
       if (callerRole !== ROLES.SUPER_ADMIN) {
-        await this.rejectSuperadminOnlyPermissions(data.permissionIds);
+        await this.rejectSuperadminOnlyPermissions(data.permissionIds, auditReq, roleId, agencyId);
       }
       if (currentUserPermissionIds !== undefined) {
         this.validatePermissionIdsSubset(data.permissionIds, currentUserPermissionIds);
@@ -155,43 +164,77 @@ export class RolesService {
       const oldPermissionIds = role.rolePermissions.map((rp) => rp.permissionId);
       await roleRepo.updateRolePermissions(roleId, data.permissionIds);
       invalidateRole(roleId);
-      await roleRepo.updateRole(roleId, { updatedById: userId });
+      await roleRepo.updateRoleScoped(roleId, agencyId, { updatedById: userId });
       if (auditReq?.user?.userId) {
+        const updatedRole = await roleRepo.findRoleById(roleId);
         await audit(auditReq, {
           action: "role.permissions.updated",
           resource: "role",
           resourceId: roleId,
           details: {
+            actorUserId: auditReq.user.userId,
+            targetRoleId: roleId,
+            agencyId,
             roleName: role.name,
-            oldPermissionIds,
-            newPermissionIds: data.permissionIds,
-            changedBy: auditReq.user.userId,
+            previousPermissions: oldPermissionIds,
+            newPermissions: data.permissionIds,
+            permissionsVersion: updatedRole?.permissionsVersion ?? role.permissionsVersion + 1,
           },
         });
       }
     }
-    const updated = await roleRepo.findRoleById(roleId);
+    const updated = await roleRepo.findRoleByIdAndAgency(roleId, agencyId);
     if (!updated) throw new AppError(ERROR_CODES.INTERNAL_ERROR, "Role not found after update", 500);
     return this.toRoleDetailDTO(updated);
   }
 
   /**
    * Delete role only if: not a system role (e.g. built-in AGENCY_ADMIN), and no users assigned.
-   * Explicit checks: isSystem → 403; userCount > 0 → 403.
+   * Uses query-scoped delete so DB never deletes another tenant's role.
    */
-  async deleteRole(roleId: string, agencyId: string): Promise<void> {
-    const role = await roleRepo.findRoleById(roleId);
+  async deleteRole(roleId: string, agencyId: string, auditReq?: AuthRequest | null): Promise<void> {
+    const role = await roleRepo.findRoleByIdAndAgency(roleId, agencyId);
     if (!role) throw new AppError(ERROR_CODES.NOT_FOUND, "Role not found", 404);
-    if (role.isSystem) {
-      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "System roles (e.g. built-in AGENCY_ADMIN) cannot be deleted", 403);
+    if (!role.isDeletable) {
+      if (auditReq?.user?.userId) {
+        await audit(auditReq, {
+          action: "role.delete.denied",
+          resource: "role",
+          resourceId: roleId,
+          details: {
+            actorUserId: auditReq.user.userId,
+            targetRoleId: roleId,
+            agencyId,
+            roleName: role.name,
+            reason: "system_role_not_deletable",
+          },
+        });
+      }
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "This role cannot be deleted", 403);
     }
-    if (role.agencyId !== agencyId) throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Role does not belong to this agency", 403);
-    const userCount = await prisma.user.count({ where: { roleId } });
+    const userCount = await userRepo.countByRoleId(roleId);
     if (userCount > 0) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, `Cannot delete role: ${userCount} user(s) are assigned to it`, 403);
     }
-    await roleRepo.deleteRole(roleId);
-    invalidateRole(roleId);
+    const previousPermissions = role.rolePermissions.map((rp) => rp.permissionId);
+    const { count } = await roleRepo.deleteRoleScoped(roleId, agencyId);
+    if (count > 0) {
+      invalidateRole(roleId);
+      if (auditReq?.user?.userId) {
+        await audit(auditReq, {
+          action: "role.deleted",
+          resource: "role",
+          resourceId: roleId,
+          details: {
+            actorUserId: auditReq.user.userId,
+            targetRoleId: roleId,
+            agencyId,
+            roleName: role.name,
+            previousPermissions,
+          },
+        });
+      }
+    }
   }
 
   private toRoleDetailDTO(role: {
@@ -223,15 +266,34 @@ export class RolesService {
     };
   }
 
-  /** Throws if any of the given permission IDs have scope PLATFORM (for non–SUPER_ADMIN callers). */
-  private async rejectSuperadminOnlyPermissions(permissionIds: string[]): Promise<void> {
+  /** Throws if any of the given permission IDs have scope PLATFORM (for non–SUPER_ADMIN callers). Audits scope violation when auditReq is provided. */
+  private async rejectSuperadminOnlyPermissions(
+    permissionIds: string[],
+    auditReq?: AuthRequest | null,
+    targetRoleId?: string | null,
+    agencyId?: string | null
+  ): Promise<void> {
     if (permissionIds.length === 0) return;
+    const prisma = getPrismaForInternalUse();
     const perms = await prisma.permission.findMany({
       where: { id: { in: permissionIds } },
-      select: { scope: true },
+      select: { id: true, scope: true },
     });
-    const disallowed = perms.filter((p) => p.scope === "PLATFORM");
+    const disallowed = perms.filter((p: { id: string; scope: string }) => p.scope === "PLATFORM");
     if (disallowed.length > 0) {
+      if (auditReq?.user?.userId) {
+        await audit(auditReq, {
+          action: "permission.scope.violation",
+          resource: "role",
+          resourceId: targetRoleId ?? undefined,
+          details: {
+            actorUserId: auditReq.user.userId,
+            targetRoleId: targetRoleId ?? undefined,
+            agencyId: agencyId ?? undefined,
+            attemptedPermissionIds: disallowed.map((p) => p.id),
+          },
+        });
+      }
       throw new AppError(
         ERROR_CODES.PERMISSION_DENIED,
         "Some permissions are restricted to system administrators only.",
@@ -254,11 +316,12 @@ export class RolesService {
 
   private async validatePermissionIds(permissionIds: string[]): Promise<void> {
     if (permissionIds.length === 0) return;
+    const prisma = getPrismaForInternalUse();
     const found = await prisma.permission.findMany({
       where: { id: { in: permissionIds } },
       select: { id: true },
     });
-    const foundSet = new Set(found.map((p) => p.id));
+    const foundSet = new Set(found.map((p: { id: string }) => p.id));
     const missing = permissionIds.filter((id) => !foundSet.has(id));
     if (missing.length > 0) {
       throw new AppError(ERROR_CODES.VALIDATION_ERROR, `Invalid permission id(s): ${missing.join(", ")}`, 400);
@@ -290,10 +353,6 @@ export class RolesService {
 
   /** Returns permission IDs for the given role (for current-user validation). */
   async getPermissionIdsForRole(roleId: string): Promise<string[]> {
-    const rows = await prisma.rolePermission.findMany({
-      where: { roleId },
-      select: { permissionId: true },
-    });
-    return rows.map((r) => r.permissionId);
+    return roleRepo.getPermissionIdsForRole(roleId);
   }
 }

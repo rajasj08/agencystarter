@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AppCard, AppButton } from "@/components/design";
+import { AuthCard, AppButton } from "@/components/design";
 import {
   FormProviderWrapper,
   FormInput,
@@ -15,7 +15,6 @@ import { useAuthStore } from "@/store/auth";
 import { login } from "@/services/auth";
 import { setFormApiError } from "@/lib/formErrors";
 import { ROUTES } from "@/constants/routes";
-import { ROLES } from "@/constants/permissions";
 
 export function LoginForm() {
   const router = useRouter();
@@ -28,10 +27,16 @@ export function LoginForm() {
   async function onSubmit(data: LoginFormValues) {
     try {
       const result = await login(data.email, data.password);
-      setAuth(result.user, result.accessToken, result.refreshToken);
+      setAuth(
+        result.user,
+        result.accessToken,
+        result.refreshToken!,
+        result.permissions,
+        result.permissionVersion
+      );
       // SUPER_ADMIN is platform-level: never onboarding, always /superadmin
       let dest: string;
-      if (result.user.role === ROLES.SUPER_ADMIN) {
+      if (result.user.isSuperAdmin) {
         dest = ROUTES.SUPERADMIN;
       } else if (result.user.agencyId) {
         dest = result.user.agency?.onboardingCompleted ? ROUTES.DASHBOARD : ROUTES.ONBOARDING;
@@ -45,7 +50,7 @@ export function LoginForm() {
   }
 
   return (
-    <AppCard
+    <AuthCard
       title="Login"
       footer={
         <>
@@ -80,7 +85,7 @@ export function LoginForm() {
         <FormInput name="email" label="auth.email" type="email" autoComplete="email" />
         <FormPassword name="password" label="auth.password" autoComplete="current-password" />
       </FormProviderWrapper>
-    </AppCard>
+    </AuthCard>
   );
 }
 

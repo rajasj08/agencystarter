@@ -3,7 +3,7 @@
  * Use get() for reads; call refresh() after updating system settings or on startup.
  */
 
-import { prisma } from "../lib/prisma.js";
+import { getPrismaForInternalUse } from "../lib/data-access.js";
 
 export interface SystemConfig {
   allowRegistration: boolean;
@@ -30,6 +30,7 @@ const DEFAULTS: SystemConfig = {
 let cache: SystemConfig = { ...DEFAULTS };
 
 export async function refresh(): Promise<SystemConfig> {
+  const prisma = getPrismaForInternalUse();
   const row = await prisma.systemSettings.findFirst({ orderBy: { updatedAt: "desc" } });
   if (!row) {
     cache = { ...DEFAULTS };

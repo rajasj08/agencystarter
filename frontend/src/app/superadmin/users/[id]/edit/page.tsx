@@ -46,6 +46,7 @@ export default function SuperadminUserEditPage() {
     setNotFound(false);
     getUserById(userId)
       .then((data) => {
+        if (!data) return;
         setUser(data);
         setStatus(data.status === "ACTIVE" ? "ACTIVE" : "DISABLED");
         setRole(

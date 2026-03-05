@@ -1,13 +1,11 @@
 import type { Prisma } from "@prisma/client";
-import { prisma } from "../../lib/prisma.js";
+import { settingsRepository as settingsRepo } from "../../lib/data-access.js";
 import { BaseService } from "../../core/BaseService.js";
-import { SettingsRepository, UPDATABLE_IDENTITY_KEYS } from "./settings.repository.js";
+import { UPDATABLE_IDENTITY_KEYS } from "./settings.repository.js";
 import { AppError } from "../../errors/AppError.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
 import type { UpdateSettingsInput } from "./settings.validation.js";
 import nodemailer from "nodemailer";
-
-const settingsRepo = new SettingsRepository(prisma);
 
 const DEFAULTS: Record<string, unknown> = {
   timezone: "UTC",

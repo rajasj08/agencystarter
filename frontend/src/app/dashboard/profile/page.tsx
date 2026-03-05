@@ -31,6 +31,7 @@ const TABS: { id: ProfileTabId; label: string; icon: React.ComponentType<{ class
 export default function ProfilePage() {
   const storeUser = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+  const setAuthFromMe = useAuthStore((s) => s.setAuthFromMe);
   const [user, setUserState] = useState<AuthUser | null>(storeUser);
   const [activeTab, setActiveTab] = useState<ProfileTabId>("basic");
   const [loading, setLoading] = useState(true);
@@ -44,13 +45,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     getMe()
-      .then((u) => {
-        setUserState(u);
-        setUser(u);
+      .then((me) => {
+        setUserState(me.user);
+        setAuthFromMe(me.user, me.permissions, me.permissionVersion);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [setAuthFromMe]);
 
   async function handleBasicInfoSubmit(values: {
     firstName?: string;

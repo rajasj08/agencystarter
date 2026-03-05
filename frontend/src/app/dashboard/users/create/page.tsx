@@ -11,8 +11,9 @@ import { z } from "zod";
 import { setFormApiError } from "@/lib/formErrors";
 import { toast } from "@/lib/toast";
 import { useUserMutations } from "@/modules/users/hooks/useUsers";
+import { ProtectedRoute } from "@/core/auth/ProtectedRoute";
 import { ROUTES } from "@/constants/routes";
-import { ROLES } from "@/constants/permissions";
+import { ROLES, PERMISSIONS } from "@/constants/permissions";
 import type { UserCreateInput } from "@/modules/users/types/userTypes";
 
 const schema = z
@@ -78,8 +79,9 @@ export default function UserCreatePage() {
   const invite = form.watch("invite");
 
   return (
-    <div className="mx-auto max-w-[1200px]">
-      <FormProviderWrapper form={form} onSubmit={handleSubmit} id="create-user-form">
+    <ProtectedRoute requiredPermission={PERMISSIONS.USER_CREATE}>
+      <div className="mx-auto max-w-[1200px]">
+        <FormProviderWrapper form={form} onSubmit={handleSubmit} id="create-user-form">
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-xl font-semibold text-text-primary">Add User</h1>
@@ -124,6 +126,7 @@ export default function UserCreatePage() {
         </div>
       </FormProviderWrapper>
     </div>
+    </ProtectedRoute>
   );
 }
 
@@ -140,7 +143,7 @@ function InviteToggle() {
   return (
     <label className="relative inline-flex cursor-pointer items-center">
       <input type="checkbox" id="invite" className="peer sr-only" {...register("invite")} />
-      <div className="peer h-6 w-11 rounded-full border border-border bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-focus:ring-2 peer-focus:ring-primary/30" />
+      <div className="peer h-6 w-11 rounded-full border border-border bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-focus:ring-1 peer-focus:ring-primary/30" />
     </label>
   );
 }

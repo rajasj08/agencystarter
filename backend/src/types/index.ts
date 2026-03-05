@@ -19,6 +19,8 @@ export interface PaginationOptions {
   page: number;
   limit: number;
   offset: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }
 
 /** Result shape for paginated list (data + total). */

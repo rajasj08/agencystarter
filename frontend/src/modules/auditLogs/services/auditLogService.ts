@@ -11,10 +11,17 @@ export interface AuditLogEntry {
   createdAt: string;
 }
 
-export async function getAuditLogs(params: { page?: number; limit?: number } = {}) {
+export async function getAuditLogs(params: {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+} = {}) {
   const query = buildListParams({
     page: params.page ?? 1,
     limit: params.limit ?? 20,
+    sortBy: params.sortBy,
+    sortOrder: params.sortOrder,
   });
   const { data } = await api.get<ApiPaginated<AuditLogEntry>>(`/audit-logs${query}`);
   return { data: data.data, meta: data.meta };

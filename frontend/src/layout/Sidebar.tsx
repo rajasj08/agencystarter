@@ -11,21 +11,21 @@ import {
   SidebarMenuButton,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useMemo } from "react";
 import { Logo } from "@/layout/Logo";
-import { navigation, getNavIcon } from "@/layout/Navigation";
-import { useAuthStore } from "@/store/auth";
-import { ROLES } from "@/constants/permissions";
+import { getVisibleMenuItems, getMenuIcon } from "@/core/navigation/menu.config";
+import { useAuthStore, isSuperAdminUser } from "@/store/auth";
 
 export function Sidebar() {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
   const user = useAuthStore((s) => s.user);
+  const permissions = useAuthStore((s) => s.permissions);
 
-  const visibleItems = navigation.filter((item) => {
-    if (item.visible === false) return false;
-    if (item.superAdminOnly) return user?.role === ROLES.SUPER_ADMIN;
-    return true;
-  });
+  const visibleItems = useMemo(
+    () => getVisibleMenuItems(permissions, isSuperAdminUser(user)),
+    [permissions, user]
+  );
 
   return (
     <SidebarPrimitive
@@ -38,18 +38,18 @@ export function Sidebar() {
       <SidebarContent>
         <SidebarMenu>
           {visibleItems.map((item) => {
-            const Icon = getNavIcon(item.icon);
-            const active = pathname === item.href;
+            const Icon = getMenuIcon(item.icon);
+            const active = pathname === item.path;
             return (
-              <SidebarMenuItem key={item.href}>
+              <SidebarMenuItem key={item.path}>
                 <SidebarMenuButton asChild active={active} isCollapsed={collapsed}>
                   <Link
-                    href={item.href}
+                    href={item.path}
                     aria-current={active ? "page" : undefined}
-                    aria-label={item.title}
+                    aria-label={item.label}
                   >
                     <Icon className="h-5 w-5 shrink-0" aria-hidden />
-                    <span>{item.title}</span>
+                    <span>{item.label}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

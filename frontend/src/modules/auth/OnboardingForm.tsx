@@ -2,21 +2,20 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AppCard, AppButton } from "@/components/design";
+import { AuthCard, AppButton } from "@/components/design";
 import { FormProviderWrapper, FormInput, FormRootError } from "@/components/forms";
 import { useAppForm } from "@/components/forms/useAppForm";
 import { onboardingSchema, type OnboardingFormValues } from "@/validations/auth";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/services/api";
 import type { ApiSuccess } from "@/services/api";
-import type { AuthUser } from "@/services/auth";
+import type { MeResponse } from "@/services/auth";
 import { setFormApiError } from "@/lib/formErrors";
 import { ROUTES } from "@/constants/routes";
-import { ROLES } from "@/constants/permissions";
 
 export function OnboardingForm() {
   const router = useRouter();
-  const { user, accessToken, setUser } = useAuthStore();
+  const { user, accessToken, setAuthFromMe } = useAuthStore();
   const form = useAppForm<typeof onboardingSchema>({
     schema: onboardingSchema,
     defaultValues: { name: "", slug: "" },
@@ -24,7 +23,7 @@ export function OnboardingForm() {
 
   useEffect(() => {
     if (!accessToken) router.replace(ROUTES.LOGIN);
-    if (user?.role === ROLES.SUPER_ADMIN) router.replace(ROUTES.SUPERADMIN);
+    if (user?.isSuperAdmin) router.replace(ROUTES.SUPERADMIN);
     if (user?.agencyId && user?.agency?.onboardingCompleted) router.replace(ROUTES.DASHBOARD);
   }, [user, accessToken, router]);
 
@@ -38,8 +37,8 @@ export function OnboardingForm() {
   async function onSubmit(data: OnboardingFormValues) {
     try {
       await api.post("/agencies", { name: data.name, slug: data.slug });
-      const { data: meData } = await api.get<ApiSuccess<AuthUser>>("/auth/me");
-      setUser(meData.data);
+      const { data: meData } = await api.get<ApiSuccess<MeResponse>>("/auth/me");
+      setAuthFromMe(meData.data.user, meData.data.permissions, meData.data.permissionVersion);
       router.push(ROUTES.DASHBOARD);
       router.refresh();
     } catch (err) {
@@ -47,7 +46,7 @@ export function OnboardingForm() {
     }
   }
 
-  if (!user || user.role === ROLES.SUPER_ADMIN || (user.agencyId && user.agency?.onboardingCompleted)) {
+  if (!user || user.isSuperAdmin || (user.agencyId && user.agency?.onboardingCompleted)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-text-secondary">Loading…</p>
@@ -56,7 +55,7 @@ export function OnboardingForm() {
   }
 
   return (
-    <AppCard
+    <AuthCard
       title="Create your agency"
       description="Set up your workspace."
       footer={
@@ -80,6 +79,6 @@ export function OnboardingForm() {
         />
         <FormInput name="slug" label="agency.slug" placeholder="acme-inc" />
       </FormProviderWrapper>
-    </AppCard>
+    </AuthCard>
   );
 }

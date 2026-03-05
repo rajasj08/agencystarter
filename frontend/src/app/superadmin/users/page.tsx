@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AppCard, AppButton } from "@/components/design";
@@ -22,31 +22,80 @@ import {
 } from "@/services/superadmin";
 import { ROUTES } from "@/constants/routes";
 import { toast } from "@/lib/toast";
-import { Pencil, UserPlus } from "lucide-react";
+import { Pencil, UserPlus, ChevronUp, ChevronDown } from "lucide-react";
+
+type UserSortField = "email" | "role" | "status" | "createdAt";
+type SortOrder = "asc" | "desc";
+
+function SortableHead({
+  label,
+  sortKey,
+  currentSortBy,
+  currentOrder,
+  onSort,
+}: {
+  label: string;
+  sortKey: UserSortField;
+  currentSortBy: UserSortField | null;
+  currentOrder: SortOrder;
+  onSort: (sortBy: UserSortField, order: SortOrder) => void;
+}) {
+  const isActive = currentSortBy === sortKey;
+  return (
+    <TableHead>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 hover:text-text-primary transition-colors font-medium"
+        onClick={() => onSort(sortKey, isActive && currentOrder === "asc" ? "desc" : "asc")}
+      >
+        {label}
+        {isActive && (currentOrder === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+      </button>
+    </TableHead>
+  );
+}
 
 export default function SuperadminUsersPage() {
   const [list, setList] = useState<PlatformUserListItem[]>([]);
   const [meta, setMeta] = useState<{ page: number; limit: number; total: number; pages: number } | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<UserSortField | null>("createdAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [loading, setLoading] = useState(true);
 
-  function loadUsers(p = page, searchTerm = search) {
-    setLoading(true);
-    getUsers({
-      page: p,
-      limit: 20,
-      search: searchTerm || undefined,
-      sortBy: "createdAt",
-      order: "desc",
-    })
-      .then(({ data, meta: m }) => {
-        setList(data);
-        setMeta(m);
+  const loadUsers = useCallback(
+    (p = page, searchTerm = search, newSortBy?: UserSortField, newOrder?: SortOrder) => {
+      const sBy = newSortBy ?? sortBy ?? "createdAt";
+      const sOrder = newOrder ?? sortOrder;
+      if (newSortBy !== undefined) setSortBy(newSortBy);
+      if (newOrder !== undefined) setSortOrder(newOrder);
+      setLoading(true);
+      getUsers({
+        page: p,
+        limit: 20,
+        search: searchTerm || undefined,
+        sortBy: sBy,
+        order: sOrder,
       })
-      .catch(() => toast.error("Failed to load users"))
-      .finally(() => setLoading(false));
-  }
+        .then(({ data, meta: m }) => {
+          setList(data);
+          setMeta(m);
+        })
+        .catch(() => toast.error("Failed to load users"))
+        .finally(() => setLoading(false));
+    },
+    [page, search, sortBy, sortOrder]
+  );
+
+  const handleSort = useCallback(
+    (newSortBy: UserSortField, newOrder: SortOrder) => {
+      setSortBy(newSortBy);
+      setSortOrder(newOrder);
+      loadUsers(page, search, newSortBy, newOrder);
+    },
+    [loadUsers, page, search]
+  );
 
   useEffect(() => {
     loadUsers(page, search);
@@ -127,12 +176,36 @@ export default function SuperadminUsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Email</TableHead>
+                    <SortableHead
+                      label="Email"
+                      sortKey="email"
+                      currentSortBy={sortBy}
+                      currentOrder={sortOrder}
+                      onSort={handleSort}
+                    />
                     <TableHead>Name</TableHead>
-                    <TableHead>Role</TableHead>
+                    <SortableHead
+                      label="Role"
+                      sortKey="role"
+                      currentSortBy={sortBy}
+                      currentOrder={sortOrder}
+                      onSort={handleSort}
+                    />
                     <TableHead>Agency</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
+                    <SortableHead
+                      label="Status"
+                      sortKey="status"
+                      currentSortBy={sortBy}
+                      currentOrder={sortOrder}
+                      onSort={handleSort}
+                    />
+                    <SortableHead
+                      label="Created"
+                      sortKey="createdAt"
+                      currentSortBy={sortBy}
+                      currentOrder={sortOrder}
+                      onSort={handleSort}
+                    />
                     <TableHead className="w-[80px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

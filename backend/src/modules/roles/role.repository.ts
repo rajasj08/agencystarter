@@ -1,4 +1,11 @@
+import crypto from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
+
+/** Hash of sorted permission IDs for tamper detection. */
+function permissionsChecksum(permissionIds: string[]): string {
+  const sorted = [...permissionIds].sort();
+  return crypto.createHash("sha256").update(sorted.join(",")).digest("hex");
+}
 
 export class RoleRepository {
   constructor(private prisma: PrismaClient) {}
@@ -35,6 +42,20 @@ export class RoleRepository {
     });
   }
 
+  /** Check if another role (excluding excludeRoleId) exists with this name in the agency. For uniqueness validation. */
+  findRoleByNameAndAgencyExcludingId(name: string, agencyId: string, excludeRoleId: string) {
+    return this.prisma.role.findFirst({
+      where: { name, agencyId, id: { not: excludeRoleId } },
+      select: { id: true },
+    });
+  }
+
+  getPermissionIdsForRole(roleId: string) {
+    return this.prisma.rolePermission
+      .findMany({ where: { roleId }, select: { permissionId: true } })
+      .then((rows) => rows.map((r) => r.permissionId));
+  }
+
   /** Tenant: roles for this agency only. Superadmin (agencyId null): only platform role(s). */
   listRolesForAgency(agencyId: string | null) {
     return this.prisma.role.findMany({
@@ -58,10 +79,49 @@ export class RoleRepository {
     });
   }
 
+  /**
+   * Fetch role only if it belongs to the given agency (or platform when agencyId is null).
+   * Enforces tenant isolation at query level: DB never returns another tenant's role.
+   */
+  findRoleByIdAndAgency(id: string, agencyId: string | null) {
+    return this.prisma.role.findFirst({
+      where: { id, agencyId: agencyId ?? null },
+      include: {
+        rolePermissions: { select: { permissionId: true } },
+        updatedBy: {
+          select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Update role only if it belongs to the given agency. No-op if wrong agency (returns 0 updated).
+   */
+  updateRoleScoped(id: string, agencyId: string | null, data: { name?: string; updatedById?: string | null }) {
+    return this.prisma.role.updateMany({
+      where: { id, agencyId: agencyId ?? null },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.updatedById !== undefined && { updatedById: data.updatedById }),
+      },
+    });
+  }
+
+  /**
+   * Delete role only if it belongs to the given agency. No-op if wrong agency (returns 0 deleted).
+   */
+  deleteRoleScoped(id: string, agencyId: string | null) {
+    return this.prisma.role.deleteMany({
+      where: { id, agencyId: agencyId ?? null },
+    });
+  }
+
   /** Create custom role for an agency with permissions. */
   async createRoleWithPermissions(data: { name: string; agencyId: string; permissionIds: string[] }) {
+    const checksum = data.permissionIds.length > 0 ? permissionsChecksum(data.permissionIds) : null;
     const role = await this.prisma.role.create({
-      data: { name: data.name, agencyId: data.agencyId, isSystem: false },
+      data: { name: data.name, agencyId: data.agencyId, isSystem: false, permissionsChecksum: checksum },
     });
     if (data.permissionIds.length > 0) {
       await this.prisma.rolePermission.createMany({
@@ -78,6 +138,11 @@ export class RoleRepository {
         data: permissionIds.map((permissionId) => ({ roleId, permissionId })),
       });
     }
+    const checksum = permissionIds.length > 0 ? permissionsChecksum(permissionIds) : null;
+    await this.prisma.role.update({
+      where: { id: roleId },
+      data: { permissionsVersion: { increment: 1 }, permissionsChecksum: checksum },
+    });
     return this.findRoleById(roleId)!;
   }
 

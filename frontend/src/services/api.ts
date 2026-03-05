@@ -36,7 +36,13 @@ api.interceptors.response.use(
         refreshing = true;
         try {
           const data = await refresh(refreshToken);
-          useAuthStore.getState().setTokens(data.accessToken, refreshToken);
+          useAuthStore.getState().setAuth(
+            data.user,
+            data.accessToken,
+            refreshToken,
+            data.permissions,
+            data.permissionVersion
+          );
           original.headers.Authorization = `Bearer ${data.accessToken}`;
           return api(original);
         } catch {

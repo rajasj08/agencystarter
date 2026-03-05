@@ -1,4 +1,4 @@
-import { prisma } from "./prisma.js";
+import { auditLogRepository } from "./data-access.js";
 import type { AuthRequest } from "../middleware/auth.js";
 
 const SENSITIVE_KEYS = new Set([
@@ -39,6 +39,18 @@ export interface AuditPayload {
   impersonation?: boolean;
 }
 
+/** Standard RBAC audit details for compliance (SOC2). */
+export interface RbacAuditDetails {
+  actorUserId: string;
+  targetRoleId: string;
+  agencyId: string | null;
+  previousPermissions?: string[];
+  newPermissions?: string[];
+  roleName?: string;
+  reason?: string;
+  [key: string]: unknown;
+}
+
 /**
  * Write an audit log entry. Call from controllers after successful mutations.
  * Uses req.user and req (ip, userAgent) when available.
@@ -50,19 +62,17 @@ export async function audit(req: AuthRequest | null, payload: AuditPayload): Pro
 
   const details = sanitizeDetails(payload.details ?? null);
 
-  await prisma.auditLog.create({
-    data: {
-      agencyId: req?.user?.agencyId ?? null,
-      userId,
-      targetUserId: payload.targetUserId ?? null,
-      action: payload.action,
-      resource: payload.resource,
-      resourceId: payload.resourceId ?? null,
-      details: details ?? undefined,
-      impersonation: payload.impersonation ?? false,
-      ipAddress: (req?.ip ?? (req as unknown as { ip?: string })?.ip) ?? null,
-      userAgent: req?.get?.("user-agent") ?? null,
-    },
+  await auditLogRepository.create({
+    agencyId: req?.user?.agencyId ?? null,
+    userId,
+    targetUserId: payload.targetUserId ?? null,
+    action: payload.action,
+    resource: payload.resource,
+    resourceId: payload.resourceId ?? null,
+    details: details ?? undefined,
+    impersonation: payload.impersonation ?? false,
+    ipAddress: (req?.ip ?? (req as unknown as { ip?: string })?.ip) ?? null,
+    userAgent: req?.get?.("user-agent") ?? null,
   });
 }
 
@@ -73,15 +83,13 @@ export async function auditLogin(meta: {
   ipAddress?: string | null;
   userAgent?: string | null;
 }): Promise<void> {
-  await prisma.auditLog.create({
-    data: {
-      userId: meta.userId,
-      agencyId: meta.agencyId,
-      action: "user.login",
-      resource: "user",
-      resourceId: meta.userId,
-      ipAddress: meta.ipAddress ?? null,
-      userAgent: meta.userAgent ?? null,
-    },
+  await auditLogRepository.create({
+    userId: meta.userId,
+    agencyId: meta.agencyId,
+    action: "user.login",
+    resource: "user",
+    resourceId: meta.userId,
+    ipAddress: meta.ipAddress ?? null,
+    userAgent: meta.userAgent ?? null,
   });
 }

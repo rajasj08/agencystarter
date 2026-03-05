@@ -3,7 +3,7 @@
  * Used by plan limiter and APIs to avoid DB hit per request.
  */
 
-import { prisma } from "../lib/prisma.js";
+import { getPrismaForInternalUse } from "../lib/data-access.js";
 
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -34,6 +34,7 @@ function parseFeatures(features: unknown): Record<string, boolean> {
 }
 
 export async function refreshPlanCache(): Promise<CachedPlan[]> {
+  const prisma = getPrismaForInternalUse();
   const rows = await prisma.plan.findMany({
     select: {
       id: true,

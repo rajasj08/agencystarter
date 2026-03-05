@@ -1,11 +1,9 @@
-import { prisma } from "../../lib/prisma.js";
-import { PlansRepository } from "./plans.repository.js";
+import { plansRepository as repo, userRepository } from "../../lib/data-access.js";
 import { AppError } from "../../errors/AppError.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
 import { invalidatePlanCache } from "../../services/PlanCache.js";
 import type { CreatePlanInput, UpdatePlanInput } from "./plans.validation.js";
 
-const repo = new PlansRepository(prisma);
 
 export interface PlanEditorDTO {
   id: string;
@@ -91,10 +89,7 @@ export class PlansService {
     if (!row) return null;
     let updatedBy: PlanEditorDTO | null = null;
     if (row.updatedById) {
-      const user = await prisma.user.findUnique({
-        where: { id: row.updatedById },
-        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
-      });
+      const user = await userRepository.findUserDisplayById(row.updatedById);
       if (user) {
         const name =
           user.displayName?.trim() ||
@@ -129,10 +124,7 @@ export class PlansService {
     invalidatePlanCache();
     let updatedBy: PlanEditorDTO | null = null;
     if (row.updatedById) {
-      const user = await prisma.user.findUnique({
-        where: { id: row.updatedById },
-        select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
-      });
+      const user = await userRepository.findUserDisplayById(row.updatedById);
       if (user) {
         const name =
           user.displayName?.trim() ||

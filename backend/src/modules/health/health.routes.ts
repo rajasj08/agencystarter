@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { prisma } from "../../lib/prisma.js";
+import { checkDatabase } from "../../lib/data-access.js";
 import { env } from "../../config/env.js";
 
 const router = Router();
@@ -9,11 +9,11 @@ router.get("/", (_req: Request, res: Response) => {
 });
 
 router.get("/db", async (_req: Request, res: Response) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
+  const ok = await checkDatabase();
+  if (ok) {
     res.json({ ok: true, database: "connected" });
-  } catch (err) {
-    res.status(503).json({ ok: false, database: "disconnected", error: (err as Error).message });
+  } else {
+    res.status(503).json({ ok: false, database: "disconnected", error: "Connection failed" });
   }
 });
 

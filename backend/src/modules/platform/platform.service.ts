@@ -1,11 +1,9 @@
 import { env } from "../../config/env.js";
 import { API_VERSION } from "../../config/version.js";
 import { getFeatureRegistry } from "../../config/features/registry.js";
-import { prisma } from "../../lib/prisma.js";
+import { systemSettingsRepository as systemSettingsRepo } from "../../lib/data-access.js";
 import { get as getSystemConfig } from "../../services/SystemConfigCache.js";
-import { SystemSettingsRepository } from "./system-settings.repository.js";
 
-const systemSettingsRepo = new SystemSettingsRepository(prisma);
 
 export interface PlatformConfigDTO {
   appName: string;
@@ -58,13 +56,8 @@ export class PlatformService {
 
   /** Aggregate health: db + app. For platform/health or config. */
   async getSystemHealth(): Promise<{ ok: boolean; database: string; maintenance: boolean }> {
-    let database: "connected" | "disconnected" = "disconnected";
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      database = "connected";
-    } catch {
-      database = "disconnected";
-    }
+    const { checkDatabase } = await import("../../lib/data-access.js");
+    const database: "connected" | "disconnected" = (await checkDatabase()) ? "connected" : "disconnected";
     return {
       ok: database === "connected" && !env.MAINTENANCE_MODE,
       database,

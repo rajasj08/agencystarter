@@ -6,6 +6,13 @@ import { UserStatusBadge } from "./UserStatusBadge";
 import { ROUTES } from "@/constants/routes";
 import type { User } from "../types/userTypes";
 
+export interface UserTableActionsProps {
+  /** Show Edit link only when user has user:update */
+  canEdit?: boolean;
+  /** When set, View opens this callback (e.g. modal) instead of navigating to detail page */
+  onView?: (user: User) => void;
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
     year: "numeric",
@@ -14,7 +21,7 @@ function formatDate(iso: string) {
   });
 }
 
-export interface UserTableProps {
+export interface UserTableProps extends UserTableActionsProps {
   data: User[];
   loading?: boolean;
   pagination?: {
@@ -30,7 +37,7 @@ export interface UserTableProps {
   };
 }
 
-export function UserTable({ data, loading, pagination, sort }: UserTableProps) {
+export function UserTable({ data, loading, pagination, sort, canEdit, onView }: UserTableProps) {
   const columns: DataTableColumn<User>[] = [
     {
       key: "name",
@@ -67,18 +74,30 @@ export function UserTable({ data, loading, pagination, sort }: UserTableProps) {
       header: "Actions",
       render: (row) => (
         <div className="flex items-center gap-2">
-          <Link
-            href={ROUTES.USER_VIEW(row.id)}
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            View
-          </Link>
-          <Link
-            href={ROUTES.USER_EDIT(row.id)}
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            Edit
-          </Link>
+          {onView ? (
+            <button
+              type="button"
+              onClick={() => onView(row)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              View
+            </button>
+          ) : (
+            <Link
+              href={ROUTES.USER_VIEW(row.id)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              View
+            </Link>
+          )}
+          {canEdit && (
+            <Link
+              href={ROUTES.USER_EDIT(row.id)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Edit
+            </Link>
+          )}
         </div>
       ),
     },

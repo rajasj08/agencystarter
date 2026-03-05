@@ -9,14 +9,21 @@ export class AuthRepository extends BaseRepository {
   findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email: email.toLowerCase(), deletedAt: null },
-      include: { agency: true, roleRef: { select: { id: true, name: true } } },
+      include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } },
     });
   }
 
   findById(id: string) {
     return this.prisma.user.findUnique({
       where: { id, deletedAt: null },
-      include: { agency: true, roleRef: { select: { id: true, name: true } } },
+      include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } },
+    });
+  }
+
+  updatePermissionSnapshotVersion(userId: string, version: number) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { permissionSnapshotVersion: version },
     });
   }
 
@@ -37,7 +44,7 @@ export class AuthRepository extends BaseRepository {
         status: data.status,
         ...(data.agencyId != null && { agencyId: data.agencyId }),
       },
-      include: { agency: true, roleRef: { select: { id: true, name: true } } },
+      include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } },
     });
   }
 
@@ -129,7 +136,7 @@ export class AuthRepository extends BaseRepository {
   findSessionByRefreshTokenHash(hash: string) {
     return this.prisma.session.findFirst({
       where: { refreshTokenHash: hash },
-      include: { user: { include: { agency: true, roleRef: { select: { id: true, name: true } } } } },
+      include: { user: { include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } } } },
     });
   }
 

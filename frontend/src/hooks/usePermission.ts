@@ -1,40 +1,31 @@
 "use client";
 
 import { useMemo } from "react";
-import { useAuthStore } from "@/store/auth";
-import { PERMISSIONS, ROLE_PERMISSIONS, type Permission, type Role } from "@/constants/permissions";
-
-const ADMIN_ALL = PERMISSIONS.ADMIN_ALL;
-
-function getPermissionsForRole(role: string): Permission[] {
-  const permissions = ROLE_PERMISSIONS[role as Role];
-  if (!permissions) return [];
-  return permissions;
-}
+import { useAuthStore, isSuperAdminUser } from "@/store/auth";
+import { hasPermission } from "@/core/auth/authorization";
+import type { Permission } from "@/constants/permissions";
 
 /**
- * Returns a stable `can(permission)` function and loading state.
- * Use to hide/disable UI the user is not allowed to use (backend still enforces).
- * Example: {can("user:create") && <AppButton>Add User</AppButton>}
+ * Returns a stable `can(permission)` function. Uses central auth store permissions.
+ * Prefer useAuthorization() for new code. This hook is kept for backward compatibility.
+ * Example: {can(PERMISSIONS.USER_CREATE) && <AppButton>Add User</AppButton>}
  */
 export function usePermission() {
   const user = useAuthStore((s) => s.user);
+  const permissions = useAuthStore((s) => s.permissions);
 
   return useMemo(() => {
-    const role = user?.role ?? null;
-    const permissions = role ? getPermissionsForRole(role) : [];
+    const isSuperAdmin = isSuperAdminUser(user);
+    const permSet = new Set(permissions);
 
-    function can(permission: Permission | string): boolean {
-      if (!role) return false;
-      if (permissions.includes(ADMIN_ALL)) return true;
-      return permissions.includes(permission as Permission);
-    }
+    const can = (permission: Permission | string): boolean =>
+      hasPermission(permSet, permission, isSuperAdmin);
 
     return {
       can,
-      role,
+      role: user?.role ?? null,
       permissions,
       isAuthenticated: !!user,
     };
-  }, [user?.role]);
+  }, [user, permissions]);
 }

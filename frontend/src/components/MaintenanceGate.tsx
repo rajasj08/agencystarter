@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/auth";
-import { ROLES } from "@/constants/permissions";
 import { getPlatformConfig } from "@/services/platform";
 
 interface MaintenanceGateProps {
@@ -18,7 +17,7 @@ export function MaintenanceGate({ children }: MaintenanceGateProps) {
   const [maintenance, setMaintenance] = useState<{ message: string | null } | null>(null);
 
   useEffect(() => {
-    if (user?.role === ROLES.SUPER_ADMIN) {
+    if (user?.isSuperAdmin) {
       setMaintenance(null);
       return;
     }

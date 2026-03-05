@@ -388,10 +388,14 @@ interface SuperadminAuditApiResponse {
 export async function getSuperadminAuditLogs(params: {
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }): Promise<AuditLogsResponse> {
   const searchParams = new URLSearchParams();
   if (params.page != null) searchParams.set("page", String(params.page));
   if (params.limit != null) searchParams.set("limit", String(params.limit));
+  if (params.sortBy) searchParams.set("sortBy", params.sortBy);
+  if (params.sortOrder) searchParams.set("sortOrder", params.sortOrder);
   const query = searchParams.toString();
   const res = await api.get<SuperadminAuditApiResponse>(
     `/superadmin/audit${query ? `?${query}` : ""}`

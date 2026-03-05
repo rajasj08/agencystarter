@@ -15,7 +15,7 @@ export function Input({ label, error, id, className = "", ...props }: InputProps
       {label && <Label htmlFor={inputId}>{label}</Label>}
       <input
         id={inputId}
-        className={`w-full px-3 py-2 border border-border rounded-md bg-card text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 ${className}`}
+        className={`w-full px-3 py-2 border border-border rounded-md bg-card text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/50 ${className}`}
         {...props}
       />
       {error && <span className="text-sm text-danger">{error}</span>}

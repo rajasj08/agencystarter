@@ -17,12 +17,36 @@ export class AgencyRepository extends BaseRepository {
     });
   }
 
-  create(data: { name: string; slug: string; planId?: string | null }) {
+  /** For platform/superadmin: agency with plan and user count. */
+  findByIdWithPlanAndCount(id: string) {
+    return this.prisma.agency.findUnique({
+      where: { id },
+      include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
+    });
+  }
+
+  /** Platform: list agencies with plan and user count. */
+  listWithPlanAndCount(orderBy: { [k: string]: "asc" | "desc" }, skip: number, take: number) {
+    return this.prisma.agency.findMany({
+      orderBy,
+      skip,
+      take,
+      include: { _count: { select: { users: true } }, plan: { select: { name: true, code: true } } },
+    });
+  }
+
+  /** Platform: total agency count. */
+  countAll() {
+    return this.prisma.agency.count();
+  }
+
+  create(data: { name: string; slug: string; planId?: string | null; onboardingCompleted?: boolean }) {
     return this.prisma.agency.create({
       data: {
         name: data.name,
         slug: data.slug,
         ...(data.planId != null && { planId: data.planId }),
+        ...(data.onboardingCompleted === true && { onboardingCompleted: true }),
       },
     });
   }

@@ -74,7 +74,7 @@ export class RolesController extends BaseController {
   deleteRole = async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = this.getParams(req);
     const agencyId = req.user!.agencyId!;
-    await rolesService.deleteRole(id, agencyId);
+    await rolesService.deleteRole(id, agencyId, req);
     this.success(res, { id }, RESPONSE_CODES.DELETED);
   };
 }

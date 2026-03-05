@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { prisma } from "../lib/prisma.js";
+import { getPrismaForInternalUse } from "../lib/data-access.js";
 import { ROLES } from "../constants/roles.js";
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
@@ -13,6 +13,7 @@ export async function seedSuperadmin(): Promise<void> {
   const password = env.SUPERADMIN_PASSWORD;
   if (!email || !password) return;
 
+  const prisma = getPrismaForInternalUse();
   const roleSuperAdmin = await prisma.role.findFirst({
     where: { name: ROLES.SUPER_ADMIN, agencyId: null, isSystem: true },
     select: { id: true },

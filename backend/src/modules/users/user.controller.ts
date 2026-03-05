@@ -14,7 +14,14 @@ export class UserController extends BaseController {
   list = async (req: AuthRequest, res: Response): Promise<void> => {
     const agencyId = req.user!.agencyId!;
     const { page, limit, offset } = this.getPagination(req);
-    const { data, total } = await userService.list(agencyId, { page, limit, offset });
+    const { sortBy, sortOrder } = this.getSort(req);
+    const { data, total } = await userService.list(agencyId, {
+      page,
+      limit,
+      offset,
+      sortBy,
+      sortOrder,
+    });
     this.paginated(res, data, total, { page, limit }, RESPONSE_CODES.FETCHED);
   };
 
@@ -35,7 +42,10 @@ export class UserController extends BaseController {
     const roleId = req.user!.roleId;
     const currentUserPermissionIds =
       roleId != null ? await rolesService.getPermissionIdsForRole(roleId) : undefined;
-    const data = await userService.create(agencyId, parsed.data, { currentUserPermissionIds });
+    const data = await userService.create(agencyId, parsed.data, {
+      currentUserPermissionIds,
+      callerIsSuperAdmin: req.user!.isSuperAdmin === true,
+    });
     await audit(req, {
       action: parsed.data.invite ? "user.invited" : "user.created",
       resource: "user",
@@ -62,6 +72,7 @@ export class UserController extends BaseController {
       currentUserPermissionIds,
       currentUserId: req.user!.userId,
       updatedById: req.user!.userId,
+      callerIsSuperAdmin: req.user!.isSuperAdmin === true,
     });
     const action =
       parsed.data.role !== undefined && parsed.data.role !== existing.role

@@ -2,12 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/auth";
+import { useAuthStore, isSuperAdminUser } from "@/store/auth";
 import { ROUTES } from "@/constants/routes";
-import { ROLES } from "@/constants/permissions";
 
 /**
- * Onboarding guard: SUPER_ADMIN must never access onboarding.
+ * Onboarding guard: platform superadmin must never access onboarding.
  * Redirect to Super Admin dashboard.
  */
 export default function OnboardingLayout({
@@ -24,7 +23,7 @@ export default function OnboardingLayout({
 
   useEffect(() => {
     if (!hydrated || !accessToken || !user) return;
-    if (user.role === ROLES.SUPER_ADMIN) {
+    if (isSuperAdminUser(user)) {
       router.replace(ROUTES.SUPERADMIN);
     }
   }, [user, accessToken, hydrated, router]);

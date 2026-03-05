@@ -11,10 +11,9 @@ import { toast } from "@/lib/toast";
 
 export function ImpersonationBanner() {
   const user = useAuthStore((s) => s.user);
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const setAuthFromMe = useAuthStore((s) => s.setAuthFromMe);
   const setTokens = useAuthStore((s) => s.setTokens);
   const getStoredRefreshToken = useAuthStore((s) => s.getStoredRefreshToken);
-  const setUser = useAuthStore((s) => s.setUser);
   const router = useRouter();
   const [exiting, setExiting] = useState(false);
 
@@ -30,9 +29,8 @@ export function ImpersonationBanner() {
     try {
       const { accessToken } = await stopImpersonation();
       setTokens(accessToken, refreshToken);
-      const updatedUser = await getMe();
-      setUser(updatedUser);
-      setAuth(updatedUser, accessToken, refreshToken);
+      const me = await getMe();
+      setAuthFromMe(me.user, me.permissions, me.permissionVersion);
       toast.success("Impersonation ended.");
       router.push(ROUTES.SUPERADMIN);
       router.refresh();

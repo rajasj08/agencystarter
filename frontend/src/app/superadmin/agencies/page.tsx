@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AppCard, AppButton } from "@/components/design";
@@ -21,28 +21,75 @@ import { useAuthStore } from "@/store/auth";
 import { getMe } from "@/services/auth";
 import { ROUTES } from "@/constants/routes";
 import { toast } from "@/lib/toast";
-import { Pencil, LogIn } from "lucide-react";
+import { Pencil, LogIn, ChevronUp, ChevronDown } from "lucide-react";
+
+type SortField = "name" | "slug" | "status" | "createdAt";
+type SortOrder = "asc" | "desc";
+
+function SortableHead({
+  label,
+  sortKey,
+  currentSortBy,
+  currentOrder,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortField;
+  currentSortBy: SortField | null;
+  currentOrder: SortOrder;
+  onSort: (sortBy: SortField, order: SortOrder) => void;
+}) {
+  const isActive = currentSortBy === sortKey;
+  return (
+    <TableHead>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 hover:text-text-primary transition-colors font-medium"
+        onClick={() => onSort(sortKey, isActive && currentOrder === "asc" ? "desc" : "asc")}
+      >
+        {label}
+        {isActive && (currentOrder === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+      </button>
+    </TableHead>
+  );
+}
 
 export default function SuperadminAgenciesPage() {
   const [list, setList] = useState<AgencyListItem[]>([]);
   const [meta, setMeta] = useState<{ page: number; limit: number; total: number; pages: number } | null>(null);
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<SortField | null>("createdAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [loading, setLoading] = useState(true);
   const setAuth = useAuthStore((s) => s.setAuth);
-  const setTokens = useAuthStore((s) => s.setTokens);
   const getStoredRefreshToken = useAuthStore((s) => s.getStoredRefreshToken);
-  const setUser = useAuthStore((s) => s.setUser);
 
-  function loadAgencies(p = page) {
-    setLoading(true);
-    getAgencies({ page: p, limit: 20, sortBy: "createdAt", order: "desc" })
-      .then(({ data, meta: m }) => {
-        setList(data);
-        setMeta(m);
-      })
-      .catch(() => toast.error("Failed to load agencies"))
-      .finally(() => setLoading(false));
-  }
+  const loadAgencies = useCallback(
+    (p = page, newSortBy?: SortField, newOrder?: SortOrder) => {
+      const sBy = newSortBy ?? sortBy ?? "createdAt";
+      const sOrder = newOrder ?? sortOrder;
+      if (newSortBy !== undefined) setSortBy(newSortBy);
+      if (newOrder !== undefined) setSortOrder(newOrder);
+      setLoading(true);
+      getAgencies({ page: p, limit: 20, sortBy: sBy, order: sOrder })
+        .then(({ data, meta: m }) => {
+          setList(data);
+          setMeta(m);
+        })
+        .catch(() => toast.error("Failed to load agencies"))
+        .finally(() => setLoading(false));
+    },
+    [page, sortBy, sortOrder]
+  );
+
+  const handleSort = useCallback(
+    (newSortBy: SortField, newOrder: SortOrder) => {
+      setSortBy(newSortBy);
+      setSortOrder(newOrder);
+      loadAgencies(page, newSortBy, newOrder);
+    },
+    [loadAgencies, page]
+  );
 
   useEffect(() => {
     loadAgencies(page);
@@ -56,10 +103,8 @@ export default function SuperadminAgenciesPage() {
     }
     try {
       const { accessToken } = await loginAsAgency(agencyId);
-      setTokens(accessToken, refreshToken);
-      const user = await getMe();
-      setUser(user);
-      setAuth(user, accessToken, refreshToken);
+      const me = await getMe();
+      setAuth(me.user, accessToken, refreshToken, me.permissions, me.permissionVersion);
       toast.success("Login as agency started. Redirecting to dashboard.");
       window.location.href = ROUTES.DASHBOARD;
     } catch (e) {
@@ -84,12 +129,36 @@ export default function SuperadminAgenciesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Slug</TableHead>
+                    <SortableHead
+                      label="Name"
+                      sortKey="name"
+                      currentSortBy={sortBy}
+                      currentOrder={sortOrder}
+                      onSort={handleSort}
+                    />
+                    <SortableHead
+                      label="Slug"
+                      sortKey="slug"
+                      currentSortBy={sortBy}
+                      currentOrder={sortOrder}
+                      onSort={handleSort}
+                    />
                     <TableHead>Plan</TableHead>
                     <TableHead>Users</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
+                    <SortableHead
+                      label="Status"
+                      sortKey="status"
+                      currentSortBy={sortBy}
+                      currentOrder={sortOrder}
+                      onSort={handleSort}
+                    />
+                    <SortableHead
+                      label="Created"
+                      sortKey="createdAt"
+                      currentSortBy={sortBy}
+                      currentOrder={sortOrder}
+                      onSort={handleSort}
+                    />
                     <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

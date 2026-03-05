@@ -1,9 +1,11 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
-import { prisma } from "../../lib/prisma.js";
-import { UserRepository } from "./user.repository.js";
-import { AuthRepository } from "../auth/auth.repository.js";
-import { RoleRepository } from "../roles/role.repository.js";
+import {
+  userRepository as userRepo,
+  authRepository as authRepo,
+  roleRepository as roleRepo,
+  getPrismaForInternalUse,
+} from "../../lib/data-access.js";
 import { RolesService } from "../roles/roles.service.js";
 import { toUserPublicDTO } from "./dto/index.js";
 import { AppError } from "../../errors/AppError.js";
@@ -17,9 +19,6 @@ import type { PaginationOptions } from "../../types/index.js";
 import { get as getSystemConfig } from "../../services/SystemConfigCache.js";
 import { checkUserLimit } from "../../core/plans/planLimiter.js";
 
-const userRepo = new UserRepository(prisma);
-const authRepo = new AuthRepository(prisma);
-const roleRepo = new RoleRepository(prisma);
 const rolesService = new RolesService();
 
 function userDisplayName(user: {
@@ -46,13 +45,22 @@ async function ensureRolePermissionsSubset(roleId: string, currentUserPermission
   }
 }
 
+const USER_LIST_SORT_FIELDS = ["name", "email", "role", "status", "createdAt"] as const;
+
 export class UserService {
   async list(agencyId: string, options: PaginationOptions) {
+    const sortBy =
+      options.sortBy && USER_LIST_SORT_FIELDS.includes(options.sortBy as (typeof USER_LIST_SORT_FIELDS)[number])
+        ? options.sortBy === "name"
+          ? "displayName"
+          : options.sortBy
+        : "createdAt";
+    const sortOrder = options.sortOrder ?? "desc";
     const { data, total } = await userRepo.listByAgency(agencyId, {
       offset: options.offset,
       limit: options.limit,
-      sortBy: "createdAt",
-      sortOrder: "desc",
+      sortBy,
+      sortOrder,
     });
     return { data: data.map(toUserPublicDTO), total };
   }
@@ -66,14 +74,14 @@ export class UserService {
   async create(
     agencyId: string,
     input: CreateUserInput,
-    options?: { currentUserPermissionIds?: string[] }
+    options?: { currentUserPermissionIds?: string[]; callerIsSuperAdmin?: boolean }
   ) {
     if (input.role === ROLES.SUPER_ADMIN) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot assign platform super admin role from tenant.", 403);
     }
     const config = getSystemConfig();
     if (config.maxUsersPerAgency != null && config.maxUsersPerAgency > 0) {
-      const count = await prisma.user.count({ where: { agencyId, deletedAt: null } });
+      const count = await userRepo.countActiveByAgency(agencyId);
       if (count >= config.maxUsersPerAgency) {
         throw new AppError(ERROR_CODES.PERMISSION_DENIED, `Agency user limit reached (max ${config.maxUsersPerAgency})`, 403);
       }
@@ -83,6 +91,9 @@ export class UserService {
     if (existing) throw new AppError(ERROR_CODES.USER_ALREADY_EXISTS, "User with this email already exists", 409);
     const role = await roleRepo.findRoleByNameAndAgency(agencyId, input.role);
     if (!role) throw new AppError(ERROR_CODES.INTERNAL_ERROR, `Role ${input.role} not found for this agency.`, 500);
+    if (!role.isAssignable && !options?.callerIsSuperAdmin) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "This role cannot be assigned to users.", 403);
+    }
     if (options?.currentUserPermissionIds !== undefined) {
       await ensureRolePermissionsSubset(role.id, options.currentUserPermissionIds);
     }
@@ -112,7 +123,7 @@ export class UserService {
     agencyId: string,
     id: string,
     input: UpdateUserInput,
-    options?: { currentUserPermissionIds?: string[]; currentUserId?: string; updatedById?: string | null }
+    options?: { currentUserPermissionIds?: string[]; currentUserId?: string; updatedById?: string | null; callerIsSuperAdmin?: boolean }
   ) {
     if (input.role === ROLES.SUPER_ADMIN) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot assign platform super admin role from tenant.", 403);
@@ -130,12 +141,16 @@ export class UserService {
     if (input.role !== undefined) {
       const role = await roleRepo.findRoleByNameAndAgency(agencyId, input.role);
       if (!role) throw new AppError(ERROR_CODES.INTERNAL_ERROR, `Role ${input.role} not found for this agency.`, 500);
+      if (!role.isAssignable && !options?.callerIsSuperAdmin) {
+        throw new AppError(ERROR_CODES.PERMISSION_DENIED, "This role cannot be assigned to users.", 403);
+      }
       if (options?.currentUserPermissionIds !== undefined) {
         await ensureRolePermissionsSubset(role.id, options.currentUserPermissionIds);
       }
       const isDemotingLastAdmin =
       existingRoleName === ROLES.AGENCY_ADMIN && role.name !== ROLES.AGENCY_ADMIN;
       if (isDemotingLastAdmin) {
+        const prisma = getPrismaForInternalUse();
         await prisma.$transaction(async (tx) => {
           const adminCount = await userRepo.countAgencyAdmins(agencyId, tx);
           if (adminCount <= 1) {
@@ -188,7 +203,8 @@ export class UserService {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin user cannot be deleted", 403);
     }
     if (roleName === ROLES.AGENCY_ADMIN) {
-      await prisma.$transaction(async (tx) => {
+      const prisma = getPrismaForInternalUse();
+      await prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
         const adminCount = await userRepo.countAgencyAdmins(agencyId, tx);
         if (adminCount <= 1) {
           throw new AppError(

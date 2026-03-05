@@ -19,6 +19,7 @@ export interface FormPasswordProps {
   autoComplete?: string;
   placeholder?: string;
   disabled?: boolean;
+  required?: boolean;
 }
 
 export function FormPassword({
@@ -30,6 +31,7 @@ export function FormPassword({
   autoComplete = "current-password",
   placeholder,
   disabled,
+  required,
 }: FormPasswordProps) {
   const [show, setShow] = useState(false);
   const {
@@ -46,10 +48,11 @@ export function FormPassword({
         <Input
           id={inputId}
           type={show ? "text" : "password"}
-          {...register(name)}
+          {...register(name, { required: required ? "Required" : false })}
           autoComplete={autoComplete}
           placeholder={placeholder}
           disabled={disabled}
+          required={required}
           aria-invalid={!!fieldError}
           className={cn("pr-10", fieldError && "border-danger focus:ring-danger", className)}
         />

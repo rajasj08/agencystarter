@@ -11,8 +11,9 @@ import { LastEditedSummary } from "@/components/LastEditedSummary";
 import { setFormApiError } from "@/lib/formErrors";
 import { toast } from "@/lib/toast";
 import { useUser, useUserMutations } from "@/modules/users/hooks/useUsers";
+import { ProtectedRoute } from "@/core/auth/ProtectedRoute";
 import { ROUTES } from "@/constants/routes";
-import { ROLES } from "@/constants/permissions";
+import { ROLES, PERMISSIONS } from "@/constants/permissions";
 import type { UserUpdateInput } from "@/modules/users/types/userTypes";
 
 const schema = z.object({
@@ -87,34 +88,29 @@ export default function UserEditPage() {
     [id, router, form.setError]
   );
 
-  if ((loadingUser && !user) || (user && !initialValues)) {
-    return (
-      <div className="mx-auto max-w-[1200px]">
-        <Card className="rounded-2xl shadow-sm">
-          <p className="text-text-secondary">Loading…</p>
-        </Card>
-      </div>
-    );
-  }
-
-  if (fetchError && !user) {
-    return (
-      <div className="mx-auto max-w-[1200px]">
-        <Card className="rounded-2xl shadow-sm">
-          <p className="text-text-secondary">{fetchError}</p>
-          <AppButton variant="outline" className="mt-4" onClick={() => router.push(ROUTES.USERS)}>
-            Back to Users
-          </AppButton>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
+  const loading = (loadingUser && !user) || (user && !initialValues);
+  const showError = fetchError && !user;
 
   return (
+    <ProtectedRoute requiredPermission={PERMISSIONS.USER_UPDATE}>
+      {loading && (
+        <div className="mx-auto max-w-[1200px]">
+          <Card className="rounded-2xl shadow-sm">
+            <p className="text-text-secondary">Loading…</p>
+          </Card>
+        </div>
+      )}
+      {showError && (
+        <div className="mx-auto max-w-[1200px]">
+          <Card className="rounded-2xl shadow-sm">
+            <p className="text-text-secondary">{fetchError}</p>
+            <AppButton variant="outline" className="mt-4" onClick={() => router.push(ROUTES.USERS)}>
+              Back to Users
+            </AppButton>
+          </Card>
+        </div>
+      )}
+      {!loading && !showError && user && (
     <div className="mx-auto max-w-[1200px]">
       <FormProviderWrapper form={form} onSubmit={handleSubmit} id="edit-user-form">
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -161,5 +157,7 @@ export default function UserEditPage() {
         </div>
       </FormProviderWrapper>
     </div>
+      )}
+    </ProtectedRoute>
   );
 }

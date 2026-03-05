@@ -2,11 +2,10 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/auth";
+import { useAuthStore, isSuperAdminUser } from "@/store/auth";
 import { AppLayout } from "@/layout/AppLayout";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { ROUTES } from "@/constants/routes";
-import { ROLES } from "@/constants/permissions";
 
 export default function DashboardRootLayout({
   children,
@@ -27,7 +26,7 @@ export default function DashboardRootLayout({
       return;
     }
     if (!user) return;
-    if (user.role === ROLES.SUPER_ADMIN && !user.impersonation) {
+    if (isSuperAdminUser(user)) {
       router.replace(ROUTES.SUPERADMIN);
       return;
     }

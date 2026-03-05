@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AppCard, AppButton } from "@/components/design";
@@ -24,15 +24,84 @@ import { getPlans, deletePlan, updatePlan, type Plan } from "@/services/superadm
 import { ROUTES } from "@/constants/routes";
 import { getApiErrorMessage } from "@/lib/apiError";
 import { toast } from "@/lib/toast";
-import { Pencil, Trash2, Plus, Star } from "lucide-react";
+import { Pencil, Trash2, Plus, Star, ChevronUp, ChevronDown } from "lucide-react";
+
+type PlanSortField = "code" | "name" | "price" | "isActive";
+type SortOrder = "asc" | "desc";
+
+function SortableHead({
+  label,
+  sortKey,
+  currentSortBy,
+  currentOrder,
+  onSort,
+}: {
+  label: string;
+  sortKey: PlanSortField;
+  currentSortBy: PlanSortField | null;
+  currentOrder: SortOrder;
+  onSort: (sortBy: PlanSortField, order: SortOrder) => void;
+}) {
+  const isActive = currentSortBy === sortKey;
+  return (
+    <TableHead>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 hover:text-text-primary transition-colors font-medium"
+        onClick={() => onSort(sortKey, isActive && currentOrder === "asc" ? "desc" : "asc")}
+      >
+        {label}
+        {isActive && (currentOrder === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+      </button>
+    </TableHead>
+  );
+}
 
 export default function SuperadminPlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<PlanSortField | null>("code");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [defaultConfirmPlan, setDefaultConfirmPlan] = useState<Plan | null>(null);
   const [settingDefault, setSettingDefault] = useState(false);
   const [deleteConfirmPlan, setDeleteConfirmPlan] = useState<Plan | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const sortedPlans = useMemo(() => {
+    if (!sortBy || !sortOrder) return plans;
+    return [...plans].sort((a, b) => {
+      let aVal: string | number | boolean;
+      let bVal: string | number | boolean;
+      switch (sortBy) {
+        case "code":
+          aVal = a.code.toLowerCase();
+          bVal = b.code.toLowerCase();
+          break;
+        case "name":
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case "price":
+          aVal = a.price;
+          bVal = b.price;
+          break;
+        case "isActive":
+          aVal = a.isActive ? 1 : 0;
+          bVal = b.isActive ? 1 : 0;
+          break;
+        default:
+          return 0;
+      }
+      if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [plans, sortBy, sortOrder]);
+
+  const handleSort = useCallback((newSortBy: PlanSortField, newOrder: SortOrder) => {
+    setSortBy(newSortBy);
+    setSortOrder(newOrder);
+  }, []);
 
   function loadPlans() {
     setLoading(true);
@@ -97,24 +166,48 @@ export default function SuperadminPlansPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableHead
+                    label="Code"
+                    sortKey="code"
+                    currentSortBy={sortBy}
+                    currentOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                  <SortableHead
+                    label="Name"
+                    sortKey="name"
+                    currentSortBy={sortBy}
+                    currentOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                  <SortableHead
+                    label="Price"
+                    sortKey="price"
+                    currentSortBy={sortBy}
+                    currentOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                  <SortableHead
+                    label="Status"
+                    sortKey="isActive"
+                    currentSortBy={sortBy}
+                    currentOrder={sortOrder}
+                    onSort={handleSort}
+                  />
                   <TableHead>Default</TableHead>
                   <TableHead>Custom</TableHead>
                   <TableHead className="w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {plans.length === 0 ? (
+                {sortedPlans.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-text-secondary">
                       No plans defined.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  plans.map((plan) => (
+                  sortedPlans.map((plan) => (
                     <TableRow key={plan.id}>
                       <TableCell className="font-mono text-sm">{plan.code}</TableCell>
                       <TableCell>{plan.name}</TableCell>

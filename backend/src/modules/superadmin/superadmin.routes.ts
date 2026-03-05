@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import { authMiddleware } from "../../middleware/auth.js";
-import { requireSuperAdmin } from "../../middleware/superadmin.js";
+import { requireRouteScope } from "../../middleware/routeScope.js";
 import { SuperadminController } from "./superadmin.controller.js";
 import { plansRoutes } from "../plans/plans.routes.js";
 
@@ -9,7 +9,7 @@ const router = Router();
 const controller = new SuperadminController();
 
 router.use(authMiddleware);
-router.use(requireSuperAdmin);
+router.use(requireRouteScope("PLATFORM"));
 
 router.use("/plans", plansRoutes);
 

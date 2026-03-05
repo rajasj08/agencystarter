@@ -1,4 +1,4 @@
-import { prisma } from "../../lib/prisma.js";
+import { auditLogRepository } from "../../lib/data-access.js";
 
 function userDisplayName(user: {
   displayName?: string | null;
@@ -24,19 +24,14 @@ export interface AuditLogEntry {
 export class AuditLogService {
   async list(
     agencyId: string,
-    options: { page: number; limit: number; offset: number }
+    options: { page: number; limit: number; offset: number; sortBy?: string; sortOrder?: "asc" | "desc" }
   ): Promise<{ data: AuditLogEntry[]; total: number }> {
-    const where = { agencyId };
-    const [rows, total] = await Promise.all([
-      prisma.auditLog.findMany({
-        where,
-        include: { user: { select: { email: true, displayName: true, firstName: true, lastName: true } } },
-        orderBy: { createdAt: "desc" },
-        skip: options.offset,
-        take: options.limit,
-      }),
-      prisma.auditLog.count({ where }),
-    ]);
+    const { rows, total } = await auditLogRepository.listByAgency(agencyId, {
+      offset: options.offset,
+      limit: options.limit,
+      sortBy: options.sortBy,
+      sortOrder: options.sortOrder,
+    });
     const data: AuditLogEntry[] = rows.map((r) => ({
       id: r.id,
       userId: r.userId,

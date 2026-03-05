@@ -82,13 +82,18 @@ model Permission {
 }
 
 model Role {
-  id          String    @id @default(cuid())
-  name        String
-  agencyId    String?
-  isSystem    Boolean   @default(false)
-  updatedById String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  name               String
+  agencyId           String?
+  isSystem           Boolean   @default(false)
+  isEditable         Boolean   @default(true)
+  isDeletable        Boolean   @default(true)
+  isAssignable       Boolean   @default(true)
+  permissionsVersion   Int       @default(1)
+  permissionsChecksum  String?   // Hash of sorted permission IDs; detects direct DB tampering
+  updatedById          String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   agency          Agency?          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   updatedBy       User?            @relation("RoleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
@@ -110,27 +115,28 @@ model RolePermission {
 }
 
 model User {
-  id              String     @id @default(cuid())
-  agencyId        String?
-  roleId          String?
-  email           String     @unique
-  passwordHash    String     @map("password")
-  firstName       String?
-  lastName        String?
-  displayName     String?
-  phone           String?
-  avatarUrl       String?
-  jobTitle        String?
-  department      String?
-  preferences     Json?      @default("{}")
-  status          UserStatus @default(ACTIVE)
-  role            String?    // Legacy: used until roleId backfilled; then removed
-  emailVerifiedAt DateTime?
-  lastLoginAt     DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  deletedAt       DateTime?
-  updatedById     String?
+  id                        String     @id @default(cuid())
+  agencyId                  String?
+  roleId                    String?
+  email                     String     @unique
+  passwordHash              String     @map("password")
+  firstName                 String?
+  lastName                  String?
+  displayName               String?
+  phone                     String?
+  avatarUrl                 String?
+  jobTitle                  String?
+  department                String?
+  preferences               Json?      @default("{}")
+  status                    UserStatus @default(ACTIVE)
+  role                      String?    // Legacy: used until roleId backfilled; then removed
+  permissionSnapshotVersion Int        @default(1)
+  emailVerifiedAt           DateTime?
+  lastLoginAt               DateTime?
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
+  deletedAt                 DateTime?
+  updatedById               String?
 
   agency             Agency?             @relation(fields: [agencyId], references: [id], onDelete: SetNull)
   roleRef            Role?               @relation(fields: [roleId], references: [id], onDelete: Restrict)

@@ -322,7 +322,8 @@ export class SuperadminController extends BaseController {
 
   getAuditLogs = async (req: AuthRequest, res: Response): Promise<void> => {
     const { page, limit, offset } = this.getPagination(req);
-    const { data, total } = await service.getAuditLogs({ page, limit, offset });
+    const { sortBy, sortOrder } = this.getSort(req);
+    const { data, total } = await service.getAuditLogs({ page, limit, offset, sortBy, sortOrder });
     this.paginated(res, data, total, { page, limit }, RESPONSE_CODES.FETCHED);
   };
 }

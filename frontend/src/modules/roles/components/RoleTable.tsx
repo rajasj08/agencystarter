@@ -10,9 +10,14 @@ import type { Role } from "../types/roleTypes";
 export interface RoleTableProps {
   data: Role[];
   loading?: boolean;
+  sort?: {
+    sortBy: string | null;
+    sortOrder: "asc" | "desc";
+    onSort: (sortBy: string, sortOrder: "asc" | "desc") => void;
+  };
 }
 
-export function RoleTable({ data, loading }: RoleTableProps) {
+export function RoleTable({ data, loading, sort }: RoleTableProps) {
   const [viewRoleId, setViewRoleId] = useState<string | null>(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
 
@@ -25,6 +30,7 @@ export function RoleTable({ data, loading }: RoleTableProps) {
     {
       key: "name",
       header: "Name",
+      sortKey: "name",
       render: (row) => (
         <span className="flex items-center gap-2">
           {row.name}
@@ -37,6 +43,7 @@ export function RoleTable({ data, loading }: RoleTableProps) {
     {
       key: "permissionIds",
       header: "Permissions",
+      sortKey: "permissionCount",
       render: (row) => (
         <span className="text-sm text-text-secondary">
           {row.permissionIds.length} permission{row.permissionIds.length !== 1 ? "s" : ""}
@@ -76,6 +83,7 @@ export function RoleTable({ data, loading }: RoleTableProps) {
         keyExtractor={(row) => row.id}
         emptyMessage="No roles found."
         loading={loading}
+        sort={sort}
         className="rounded-xl"
       />
       <ViewRoleModal

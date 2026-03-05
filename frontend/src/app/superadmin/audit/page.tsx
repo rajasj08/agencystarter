@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AppCard, AppButton } from "@/components/design";
 import {
@@ -12,21 +12,71 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getSuperadminAuditLogs, type SuperadminAuditEntry } from "@/services/superadmin";
+import { ChevronUp, ChevronDown } from "lucide-react";
+
+type AuditSortField = "createdAt" | "action" | "resource";
+type SortOrder = "asc" | "desc";
+
+function SortableHead({
+  label,
+  sortKey,
+  currentSortBy,
+  currentOrder,
+  onSort,
+}: {
+  label: string;
+  sortKey: AuditSortField;
+  currentSortBy: AuditSortField | null;
+  currentOrder: SortOrder;
+  onSort: (sortBy: AuditSortField, order: SortOrder) => void;
+}) {
+  const isActive = currentSortBy === sortKey;
+  return (
+    <TableHead>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 hover:text-text-primary transition-colors font-medium"
+        onClick={() => onSort(sortKey, isActive && currentOrder === "asc" ? "desc" : "asc")}
+      >
+        {label}
+        {isActive && (currentOrder === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+      </button>
+    </TableHead>
+  );
+}
 
 export default function SuperadminAuditPage() {
   const [entries, setEntries] = useState<SuperadminAuditEntry[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 20, pages: 1 });
+  const [sortBy, setSortBy] = useState<AuditSortField | null>("createdAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [loading, setLoading] = useState(true);
 
-  function load(page = 1) {
-    setLoading(true);
-    getSuperadminAuditLogs({ page, limit: meta.limit })
-      .then((res) => {
-        setEntries(res.data);
-        setMeta(res.meta);
-      })
-      .finally(() => setLoading(false));
-  }
+  const load = useCallback(
+    (page = 1, newSortBy?: AuditSortField, newOrder?: SortOrder) => {
+      const sBy = newSortBy ?? sortBy ?? "createdAt";
+      const sOrder = newOrder ?? sortOrder;
+      if (newSortBy !== undefined) setSortBy(newSortBy);
+      if (newOrder !== undefined) setSortOrder(newOrder);
+      setLoading(true);
+      getSuperadminAuditLogs({ page, limit: meta.limit, sortBy: sBy, sortOrder: sOrder })
+        .then((res) => {
+          setEntries(res.data);
+          setMeta(res.meta);
+        })
+        .finally(() => setLoading(false));
+    },
+    [meta.limit, sortBy, sortOrder]
+  );
+
+  const handleSort = useCallback(
+    (newSortBy: AuditSortField, newOrder: SortOrder) => {
+      setSortBy(newSortBy);
+      setSortOrder(newOrder);
+      load(1, newSortBy, newOrder);
+    },
+    [load]
+  );
 
   useEffect(() => {
     load(1);

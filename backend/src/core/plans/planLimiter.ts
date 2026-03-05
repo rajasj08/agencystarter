@@ -3,23 +3,18 @@
  * Uses plan from agency; throws PLAN_LIMIT_REACHED when limit exceeded.
  */
 
-import { prisma } from "../../lib/prisma.js";
+import { agencyRepository, userRepository } from "../../lib/data-access.js";
 import { AppError } from "../../errors/AppError.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
 import { getPlansCached, getPlanByIdCached } from "../../services/PlanCache.js";
 
 export async function checkUserLimit(agencyId: string): Promise<void> {
-  const agency = await prisma.agency.findUnique({
-    where: { id: agencyId },
-    select: { planId: true },
-  });
+  const agency = await agencyRepository.findById(agencyId);
   if (!agency?.planId) return; // no plan = no limit enforced
   await getPlansCached(); // ensure cache warm
   const plan = getPlanByIdCached(agency.planId);
   if (!plan) return;
-  const count = await prisma.user.count({
-    where: { agencyId, deletedAt: null },
-  });
+  const count = await userRepository.countActiveByAgency(agencyId);
   if (plan.maxUsers >= 0 && count >= plan.maxUsers) {
     throw new AppError(
       ERROR_CODES.PLAN_LIMIT_REACHED,
@@ -30,10 +25,7 @@ export async function checkUserLimit(agencyId: string): Promise<void> {
 }
 
 export async function checkLocationLimit(agencyId: string): Promise<void> {
-  const agency = await prisma.agency.findUnique({
-    where: { id: agencyId },
-    select: { planId: true },
-  });
+  const agency = await agencyRepository.findById(agencyId);
   if (!agency?.planId) return;
   await getPlansCached();
   const plan = getPlanByIdCached(agency.planId);
@@ -50,10 +42,7 @@ export async function checkLocationLimit(agencyId: string): Promise<void> {
 }
 
 export async function checkFacilityLimit(agencyId: string): Promise<void> {
-  const agency = await prisma.agency.findUnique({
-    where: { id: agencyId },
-    select: { planId: true },
-  });
+  const agency = await agencyRepository.findById(agencyId);
   if (!agency?.planId) return;
   await getPlansCached();
   const plan = getPlanByIdCached(agency.planId);
@@ -69,10 +58,7 @@ export async function checkFacilityLimit(agencyId: string): Promise<void> {
 }
 
 export async function checkEmployeeLimit(agencyId: string): Promise<void> {
-  const agency = await prisma.agency.findUnique({
-    where: { id: agencyId },
-    select: { planId: true },
-  });
+  const agency = await agencyRepository.findById(agencyId);
   if (!agency?.planId) return;
   await getPlansCached();
   const plan = getPlanByIdCached(agency.planId);

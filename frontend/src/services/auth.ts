@@ -33,6 +33,8 @@ export interface AuthUser {
     slug: string;
     onboardingCompleted: boolean;
   } | null;
+  /** True when user has platform superadmin role (backend source of truth). No UI role-name checks. */
+  isSuperAdmin?: boolean;
   /** True when SUPER_ADMIN is acting in another agency's context. */
   impersonation?: boolean;
   /** Set when impersonation is true; the agency being impersonated. */
@@ -49,9 +51,18 @@ export interface SessionInfo {
 
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
   expiresIn: number;
   user: AuthUser;
+  /** From backend; do not derive on frontend. */
+  permissions: string[];
+  permissionVersion: number;
+}
+
+export interface MeResponse {
+  user: AuthUser;
+  permissions: string[];
+  permissionVersion: number;
 }
 
 export interface EmailVerificationRequiredResponse {
@@ -91,7 +102,7 @@ export async function logout(refreshToken: string) {
 }
 
 export async function getMe() {
-  const { data } = await api.get<ApiSuccess<AuthUser>>("/auth/me");
+  const { data } = await api.get<ApiSuccess<MeResponse>>("/auth/me");
   return data.data;
 }
 

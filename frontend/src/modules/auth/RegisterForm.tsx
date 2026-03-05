@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AppCard, AppButton } from "@/components/design";
+import { AuthCard, AppButton } from "@/components/design";
 import {
   FormProviderWrapper,
   FormInput,
@@ -42,8 +42,14 @@ export function RegisterForm() {
         data.confirmPassword,
         data.name || undefined
       );
-      if ("accessToken" in result && result.accessToken) {
-        setAuth(result.user, result.accessToken, result.refreshToken);
+      if ("accessToken" in result && result.accessToken && "permissions" in result) {
+        setAuth(
+          result.user,
+          result.accessToken,
+          result.refreshToken!,
+          result.permissions,
+          result.permissionVersion
+        );
         router.push(result.user.agencyId ? ROUTES.DASHBOARD : ROUTES.ONBOARDING);
       } else {
         setVerificationSent(true);
@@ -55,19 +61,19 @@ export function RegisterForm() {
 
   if (verificationSent) {
     return (
-      <AppCard title="Check your email">
+      <AuthCard title="Check your email">
         <p className="text-text-secondary">
           We sent a verification link to <strong>{submittedEmail}</strong>. Click the link to activate your account.
         </p>
         <Link href={ROUTES.LOGIN} className="text-primary font-medium mt-4 inline-block">
           Back to login
         </Link>
-      </AppCard>
+      </AuthCard>
     );
   }
 
   return (
-    <AppCard
+    <AuthCard
       title="Register"
       footer={
         <>
@@ -99,6 +105,6 @@ export function RegisterForm() {
         <FormPassword name="password" label="auth.password" autoComplete="new-password" />
         <FormPasswordConfirm name="confirmPassword" label="auth.confirmPassword" />
       </FormProviderWrapper>
-    </AppCard>
+    </AuthCard>
   );
 }

@@ -11,3 +11,11 @@ export function tenantScope(agencyId: string | null): { agencyId: string } | Rec
   if (agencyId == null) return {};
   return { agencyId };
 }
+
+/**
+ * Strict tenant scope for tenant-only repositories. Use wherever agencyId must be set.
+ * Caller must pass agencyId: string (never undefined/null) so one unscoped call = boundary breach is impossible.
+ */
+export function tenantScopeStrict(agencyId: string): { agencyId: string } {
+  return { agencyId };
+}

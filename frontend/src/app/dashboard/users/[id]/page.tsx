@@ -9,7 +9,8 @@ import { UserStatusBadge } from "@/modules/users";
 import { useUser } from "@/modules/users/hooks/useUsers";
 import { useUserMutations } from "@/modules/users/hooks/useUsers";
 import { ROUTES } from "@/constants/routes";
-import { usePermission } from "@/hooks/usePermission";
+import { useAuthorization } from "@/core/auth/useAuthorization";
+import { ProtectedRoute } from "@/core/auth/ProtectedRoute";
 import { PERMISSIONS } from "@/constants/permissions";
 
 function formatDate(iso: string) {
@@ -26,7 +27,7 @@ export default function UserViewPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const { can } = usePermission();
+  const { hasPermission } = useAuthorization();
   const { user, loading, error, fetchUser } = useUser(id);
   const { deleteUser, loading: deleting } = useUserMutations();
 
@@ -40,44 +41,36 @@ export default function UserViewPage() {
     if (ok) router.push(ROUTES.USERS);
   }
 
-  if (loading && !user) {
-    return (
-      <PageContainer title="User">
-        <AppCard className="rounded-xl p-6">
-          <p className="text-text-secondary">Loading…</p>
-        </AppCard>
-      </PageContainer>
-    );
-  }
-
-  if (error && !user) {
-    return (
-      <PageContainer title="User">
-        <AppCard className="rounded-xl p-6">
-          <p className="text-danger" role="alert">
-            {error}
-          </p>
-          <AppButton variant="outline" className="mt-4" asChild>
-            <Link href={ROUTES.USERS}>Back to Users</Link>
-          </AppButton>
-        </AppCard>
-      </PageContainer>
-    );
-  }
-
-  if (!user) return null;
-
   return (
-    <PageContainer
-      title={user.name || user.email}
-      actions={
-        <div className="flex gap-2">
-          {can(PERMISSIONS.USER_UPDATE) && (
-            <AppButton variant="outline" asChild>
-              <Link href={ROUTES.USER_EDIT(id)}>Edit</Link>
+    <ProtectedRoute requiredPermission={PERMISSIONS.USER_LIST}>
+      {loading && !user ? (
+        <PageContainer title="User">
+          <AppCard className="rounded-xl p-6">
+            <p className="text-text-secondary">Loading…</p>
+          </AppCard>
+        </PageContainer>
+      ) : error && !user ? (
+        <PageContainer title="User">
+          <AppCard className="rounded-xl p-6">
+            <p className="text-danger" role="alert">
+              {error}
+            </p>
+            <AppButton variant="outline" className="mt-4" asChild>
+              <Link href={ROUTES.USERS}>Back to Users</Link>
             </AppButton>
-          )}
-          {can(PERMISSIONS.USER_DELETE) && (
+          </AppCard>
+        </PageContainer>
+      ) : !user ? null : (
+        <PageContainer
+        title={user.name || user.email}
+        actions={
+          <div className="flex gap-2">
+            {hasPermission(PERMISSIONS.USER_UPDATE) && (
+              <AppButton variant="outline" asChild>
+                <Link href={ROUTES.USER_EDIT(id)}>Edit</Link>
+              </AppButton>
+            )}
+            {hasPermission(PERMISSIONS.USER_DELETE) && (
             <AppButton variant="danger" onClick={handleDelete} loading={deleting} disabled={deleting}>
               Delete
             </AppButton>
@@ -118,5 +111,7 @@ export default function UserViewPage() {
         </dl>
       </AppCard>
     </PageContainer>
+      )}
+    </ProtectedRoute>
   );
 }

@@ -53,7 +53,19 @@ export async function seedRbac(): Promise<{ roleSuperAdmin: { id: string } }> {
   });
   if (!roleSuperAdmin) {
     roleSuperAdmin = await prisma.role.create({
-      data: { name: "SUPER_ADMIN", agencyId: null, isSystem: true },
+      data: {
+        name: "SUPER_ADMIN",
+        agencyId: null,
+        isSystem: true,
+        isEditable: false,
+        isDeletable: false,
+        isAssignable: false,
+      },
+    });
+  } else {
+    await prisma.role.update({
+      where: { id: roleSuperAdmin.id },
+      data: { isEditable: false, isDeletable: false, isAssignable: false },
     });
   }
   // SUPER_ADMIN: no RolePermission rows; middleware treats by name and grants admin:all
@@ -85,13 +97,26 @@ export async function createAgencyRoles(
     }
   };
 
+  const systemRoleFlags: Record<string, { isEditable: boolean; isDeletable: boolean; isAssignable: boolean }> = {
+    AGENCY_ADMIN: { isEditable: false, isDeletable: false, isAssignable: true },
+    AGENCY_MEMBER: { isEditable: false, isDeletable: false, isAssignable: true },
+    USER: { isEditable: false, isDeletable: false, isAssignable: true },
+  };
+
   const upsertAgencyRole = async (name: string) => {
     const existing = await prismaInstance.role.findFirst({
       where: { name, agencyId, isSystem: true },
     });
-    if (existing) return existing;
+    const flags = systemRoleFlags[name] ?? { isEditable: true, isDeletable: true, isAssignable: true };
+    if (existing) {
+      await prismaInstance.role.update({
+        where: { id: existing.id },
+        data: flags,
+      });
+      return existing;
+    }
     return prismaInstance.role.create({
-      data: { name, agencyId, isSystem: true },
+      data: { name, agencyId, isSystem: true, ...flags },
     });
   };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm, type FieldValues } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { FormProviderWrapper } from "@/components/forms";
@@ -84,30 +84,34 @@ export function UserForm({ mode, initialData, onSubmit, loading = false }: UserF
 
   const invite = isCreate && createForm.watch("invite");
 
-  const handleSubmit = isCreate
-    ? createForm.handleSubmit((values) => {
-        const v = values as UserCreateFormValues;
-        onSubmit({
-          email: v.email,
-          name: v.name || undefined,
-          role: v.role,
-          invite: v.invite,
-          password: v.invite ? undefined : v.password,
-        });
-      })
-    : updateForm.handleSubmit((values) => {
-        const v = values as UserUpdateFormValues;
-        onSubmit({
-          name: v.name || undefined,
-          role: v.role,
-          status: v.status,
-        });
-      });
-
   const form = isCreate ? createForm : updateForm;
 
+  const handleSubmitData = (data: UserCreateFormValues | UserUpdateFormValues) => {
+    if (isCreate) {
+      const v = data as UserCreateFormValues;
+      onSubmit({
+        email: v.email,
+        name: v.name || undefined,
+        role: v.role,
+        invite: v.invite,
+        password: v.invite ? undefined : v.password,
+      });
+    } else {
+      const v = data as UserUpdateFormValues;
+      onSubmit({
+        name: v.name || undefined,
+        role: v.role,
+        status: v.status,
+      });
+    }
+  };
+
   return (
-    <FormProviderWrapper form={form as unknown as ReturnType<typeof useForm<FieldValues>>} onSubmit={handleSubmit} className="space-y-6">
+    <FormProviderWrapper
+      form={form as UseFormReturn<UserCreateFormValues | UserUpdateFormValues>}
+      onSubmit={handleSubmitData}
+      className="space-y-6"
+    >
       {isCreate && (
         <>
           <FormInput name="email" label="Email" type="email" required />
