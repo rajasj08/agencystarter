@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import {
   agencyRepository,
   userRepository,
@@ -137,6 +138,7 @@ export class SuperadminService {
     limit?: number;
     sortBy?: string;
     order?: "asc" | "desc";
+    search?: string;
   }): Promise<{ data: AgencyListItemDTO[]; total: number }> {
     const page = clampPage(params.page ?? PAGINATION.DEFAULT_PAGE);
     const limit = clampLimit(params.limit ?? PAGINATION.DEFAULT_LIMIT);
@@ -147,10 +149,19 @@ export class SuperadminService {
       : "createdAt";
     const order = params.order === "asc" ? "asc" : "desc";
 
-    // Platform scope: explicitly no agencyId filter (superadmin lists all agencies).
+    const searchWhere =
+      params.search?.trim()
+        ? {
+            OR: [
+              { name: { contains: params.search.trim(), mode: "insensitive" as const } },
+              { slug: { contains: params.search.trim(), mode: "insensitive" as const } },
+            ],
+          }
+        : undefined;
+
     const [agencies, total] = await Promise.all([
-      agencyRepository.listWithPlanAndCount({ [sortBy]: order }, offset, limit),
-      agencyRepository.countAll(),
+      agencyRepository.listWithPlanAndCount({ [sortBy]: order }, offset, limit, searchWhere),
+      agencyRepository.countAll(searchWhere),
     ]);
 
     const data: AgencyListItemDTO[] = agencies.map((a) => ({
@@ -505,15 +516,18 @@ export class SuperadminService {
         ? ({ roleRef: { name: order } } as const)
         : ({ [sortBy]: order } as { createdAt?: "asc" | "desc"; email?: "asc" | "desc"; status?: "asc" | "desc" });
 
-    // Platform scope: explicitly no agencyId filter (superadmin lists all users). Never use agencyId: undefined for "all".
-    const where = { deletedAt: null };
+    // Platform scope only: agencyId is optional filter when provided by superadmin; never used for tenant isolation.
+    const where: Prisma.UserWhereInput = { deletedAt: null };
+    if (query.agencyId?.trim()) {
+      where.agencyId = query.agencyId.trim();
+    }
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
-      (where as Record<string, unknown>).OR = [
-        { email: { contains: term, mode: "insensitive" as const } },
-        { displayName: { contains: term, mode: "insensitive" as const } },
-        { firstName: { contains: term, mode: "insensitive" as const } },
-        { lastName: { contains: term, mode: "insensitive" as const } },
+      where.OR = [
+        { email: { contains: term, mode: "insensitive" } },
+        { displayName: { contains: term, mode: "insensitive" } },
+        { firstName: { contains: term, mode: "insensitive" } },
+        { lastName: { contains: term, mode: "insensitive" } },
       ];
     }
 

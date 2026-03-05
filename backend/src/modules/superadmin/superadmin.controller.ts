@@ -49,12 +49,13 @@ export class SuperadminController extends BaseController {
 
   getAgencies = async (req: AuthRequest, res: Response): Promise<void> => {
     const { page, limit } = this.getPagination(req);
-    const query = this.getQuery<{ sortBy?: string; order?: string }>(req);
+    const query = this.getQuery<{ sortBy?: string; order?: string; search?: string }>(req);
     const { data, total } = await service.getAgencies({
       page,
       limit,
       sortBy: query.sortBy,
       order: query.order === "asc" ? "asc" : "desc",
+      search: query.search,
     });
     this.paginated(res, data, total, { page, limit }, RESPONSE_CODES.FETCHED);
   };
@@ -249,7 +250,7 @@ export class SuperadminController extends BaseController {
 
   getUsers = async (req: AuthRequest, res: Response): Promise<void> => {
     const { page, limit } = this.getPagination(req);
-    const query = this.getQuery<{ search?: string; sortBy?: string; order?: string }>(req);
+    const query = this.getQuery<{ search?: string; sortBy?: string; order?: string; agencyId?: string }>(req);
     const parsed = listUsersQuerySchema.safeParse({ ...query, page, limit });
     const opts = parsed.success
       ? parsed.data
@@ -259,13 +260,17 @@ export class SuperadminController extends BaseController {
           search: query.search,
           sortBy: undefined as ListUsersQuery["sortBy"],
           order: undefined as ListUsersQuery["order"],
+          agencyId: undefined as string | undefined,
         };
+    const agencyIdFilter =
+      req.user?.isSuperAdmin === true && opts.agencyId?.trim() ? opts.agencyId.trim() : undefined;
     const { data, total } = await service.getUsers({
       page: opts.page ?? page,
       limit: opts.limit ?? limit,
       search: opts.search,
       sortBy: opts.sortBy,
       order: opts.order,
+      agencyId: agencyIdFilter,
     });
     this.paginated(res, data, total, { page: opts.page ?? page, limit: opts.limit ?? limit }, RESPONSE_CODES.FETCHED);
   };

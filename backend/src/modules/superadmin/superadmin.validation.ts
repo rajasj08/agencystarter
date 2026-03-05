@@ -52,13 +52,14 @@ export const updateAgencyPlanSchema = z
   })
   .strict();
 
-// GET /superadmin/users query
+// GET /superadmin/users query. agencyId is only applied when caller is superadmin (platform scope); never used for isolation.
 export const listUsersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   search: z.string().max(100).optional(),
   sortBy: z.enum(["createdAt", "email", "role", "status"]).optional(),
   order: z.enum(["asc", "desc"]).optional(),
+  agencyId: z.string().min(1).max(100).optional(),
 });
 
 // PATCH /superadmin/users/:id/role

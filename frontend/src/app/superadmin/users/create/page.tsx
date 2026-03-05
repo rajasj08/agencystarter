@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AppCard, AppButton } from "@/components/design";
@@ -8,7 +8,8 @@ import { FormProviderWrapper, FormInput, FormPassword, FormRootError } from "@/c
 import { useAppForm } from "@/components/forms/useAppForm";
 import { z } from "zod";
 import { setFormApiError } from "@/lib/formErrors";
-import { getAgencies, createUser, type CreateUserInput, type AgencyListItem } from "@/services/superadmin";
+import { createUser, type CreateUserInput } from "@/services/superadmin";
+import { AgencyAutocomplete } from "@/components/superadmin/AgencyAutocomplete";
 import { toast } from "@/lib/toast";
 import { ROUTES } from "@/constants/routes";
 
@@ -30,8 +31,6 @@ const ROLE_OPTIONS = [
 
 export default function SuperadminUserCreatePage() {
   const router = useRouter();
-  const [agencies, setAgencies] = useState<AgencyListItem[]>([]);
-  const [agenciesLoading, setAgenciesLoading] = useState(true);
 
   const form = useAppForm<typeof schema>({
     schema,
@@ -44,12 +43,8 @@ export default function SuperadminUserCreatePage() {
     },
   });
 
-  useEffect(() => {
-    getAgencies({ limit: 100 })
-      .then(({ data }) => setAgencies(data.filter((a) => a.status === "ACTIVE")))
-      .catch(() => setAgencies([]))
-      .finally(() => setAgenciesLoading(false));
-  }, []);
+  const agencyId = form.watch("agencyId");
+  const agencyError = form.formState.errors.agencyId?.message;
 
   const handleSubmit = useCallback(
     async (data: FormValues) => {
@@ -88,21 +83,13 @@ export default function SuperadminUserCreatePage() {
           <FormRootError />
             <div>
               <label className="mb-1 block text-sm font-medium text-text-primary">Agency</label>
-              <select
-                {...form.register("agencyId")}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary"
-                disabled={agenciesLoading}
-              >
-                <option value="">Select agency</option>
-                {agencies.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.slug})
-                  </option>
-                ))}
-              </select>
-              {form.formState.errors.agencyId && (
-                <p className="mt-1 text-sm text-red-600">{form.formState.errors.agencyId.message}</p>
-              )}
+              <AgencyAutocomplete
+                value={agencyId}
+                onChange={(id) => form.setValue("agencyId", id, { shouldValidate: true })}
+                placeholder="Select agency"
+                activeOnly
+                error={agencyError}
+              />
             </div>
             <FormInput name="email" label="Email" type="email" required />
             <FormPassword name="password" label="Password" required />
@@ -132,7 +119,7 @@ export default function SuperadminUserCreatePage() {
                 form="create-user-form"
                 type="submit"
                 loading={form.formState.isSubmitting}
-                disabled={agenciesLoading || agencies.length === 0}
+                disabled={form.formState.isSubmitting}
               >
                 Create user
               </AppButton>

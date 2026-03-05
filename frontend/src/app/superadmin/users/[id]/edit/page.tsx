@@ -12,6 +12,7 @@ import {
   resetUserPassword,
   type PlatformUserDetail,
 } from "@/services/superadmin";
+import { AgencyAutocomplete } from "@/components/superadmin/AgencyAutocomplete";
 import { toast } from "@/lib/toast";
 import { ROUTES } from "@/constants/routes";
 
@@ -159,6 +160,18 @@ export default function SuperadminUserEditPage() {
           </p>
         )}
         <div className="space-y-6">
+          {user.agencyId && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-text-primary">Agency</label>
+              <AgencyAutocomplete
+                value={user.agencyId}
+                onChange={() => {}}
+                placeholder="Select agency"
+                activeOnly={false}
+                disabled
+              />
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium text-text-primary">Status</label>
             <select

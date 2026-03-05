@@ -221,12 +221,14 @@ export async function getAgencies(params?: {
   limit?: number;
   sortBy?: string;
   order?: "asc" | "desc";
+  search?: string;
 }): Promise<AgenciesResponse> {
   const sp = new URLSearchParams();
   if (params?.page != null) sp.set("page", String(params.page));
   if (params?.limit != null) sp.set("limit", String(params.limit));
   if (params?.sortBy) sp.set("sortBy", params.sortBy);
   if (params?.order) sp.set("order", params.order);
+  if (params?.search) sp.set("search", params.search);
   const q = sp.toString();
   const res = await api.get<{ success: true; data: AgencyListItem[]; meta: PaginationMeta }>(
     `/superadmin/agencies${q ? `?${q}` : ""}`
@@ -314,6 +316,7 @@ export async function getUsers(params?: {
   search?: string;
   sortBy?: string;
   order?: "asc" | "desc";
+  agencyId?: string | null;
 }): Promise<UsersResponse> {
   const sp = new URLSearchParams();
   if (params?.page != null) sp.set("page", String(params.page));
@@ -321,6 +324,7 @@ export async function getUsers(params?: {
   if (params?.search) sp.set("search", params.search);
   if (params?.sortBy) sp.set("sortBy", params.sortBy);
   if (params?.order) sp.set("order", params.order);
+  if (params?.agencyId) sp.set("agencyId", params.agencyId);
   const q = sp.toString();
   const res = await api.get<{ success: true; data: PlatformUserListItem[]; meta: PaginationMeta }>(
     `/superadmin/users${q ? `?${q}` : ""}`

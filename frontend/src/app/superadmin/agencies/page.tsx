@@ -203,7 +203,7 @@ export default function SuperadminAgenciesPage() {
                             <Link
                               href={ROUTES.SUPERADMIN_AGENCY_EDIT(agency.id)}
                               title="Edit agency"
-                              className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-text-primary"
+                              className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-text-primary inline-block"
                             >
                               <Pencil className="h-4 w-4" aria-hidden />
                             </Link>

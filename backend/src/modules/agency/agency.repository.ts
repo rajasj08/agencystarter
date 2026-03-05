@@ -25,9 +25,15 @@ export class AgencyRepository extends BaseRepository {
     });
   }
 
-  /** Platform: list agencies with plan and user count. */
-  listWithPlanAndCount(orderBy: { [k: string]: "asc" | "desc" }, skip: number, take: number) {
+  /** Platform: list agencies with plan and user count. Optional where for server-side search. */
+  listWithPlanAndCount(
+    orderBy: { [k: string]: "asc" | "desc" },
+    skip: number,
+    take: number,
+    where?: { OR?: Array<{ name?: { contains: string; mode: "insensitive" }; slug?: { contains: string; mode: "insensitive" } }> }
+  ) {
     return this.prisma.agency.findMany({
+      where,
       orderBy,
       skip,
       take,
@@ -35,9 +41,9 @@ export class AgencyRepository extends BaseRepository {
     });
   }
 
-  /** Platform: total agency count. */
-  countAll() {
-    return this.prisma.agency.count();
+  /** Platform: total agency count. Optional where for search. */
+  countAll(where?: { OR?: Array<{ name?: { contains: string; mode: "insensitive" }; slug?: { contains: string; mode: "insensitive" } }> }) {
+    return this.prisma.agency.count({ where });
   }
 
   create(data: { name: string; slug: string; planId?: string | null; onboardingCompleted?: boolean }) {

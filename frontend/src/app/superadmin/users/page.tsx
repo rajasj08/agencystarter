@@ -20,6 +20,7 @@ import {
   resetUserPassword,
   type PlatformUserListItem,
 } from "@/services/superadmin";
+import { AgencyFilter } from "@/components/superadmin/AgencyFilter";
 import { ROUTES } from "@/constants/routes";
 import { toast } from "@/lib/toast";
 import { Pencil, UserPlus, ChevronUp, ChevronDown } from "lucide-react";
@@ -59,13 +60,14 @@ export default function SuperadminUsersPage() {
   const [list, setList] = useState<PlatformUserListItem[]>([]);
   const [meta, setMeta] = useState<{ page: number; limit: number; total: number; pages: number } | null>(null);
   const [page, setPage] = useState(1);
+  const [agencyId, setAgencyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<UserSortField | null>("createdAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [loading, setLoading] = useState(true);
 
   const loadUsers = useCallback(
-    (p = page, searchTerm = search, newSortBy?: UserSortField, newOrder?: SortOrder) => {
+    (p = page, searchTerm = search, agencyFilter: string | null = agencyId, newSortBy?: UserSortField, newOrder?: SortOrder) => {
       const sBy = newSortBy ?? sortBy ?? "createdAt";
       const sOrder = newOrder ?? sortOrder;
       if (newSortBy !== undefined) setSortBy(newSortBy);
@@ -74,6 +76,7 @@ export default function SuperadminUsersPage() {
       getUsers({
         page: p,
         limit: 20,
+        agencyId: agencyFilter ?? undefined,
         search: searchTerm || undefined,
         sortBy: sBy,
         order: sOrder,
@@ -85,26 +88,32 @@ export default function SuperadminUsersPage() {
         .catch(() => toast.error("Failed to load users"))
         .finally(() => setLoading(false));
     },
-    [page, search, sortBy, sortOrder]
+    [page, search, agencyId, sortBy, sortOrder]
   );
 
   const handleSort = useCallback(
     (newSortBy: UserSortField, newOrder: SortOrder) => {
       setSortBy(newSortBy);
       setSortOrder(newOrder);
-      loadUsers(page, search, newSortBy, newOrder);
+      loadUsers(page, search, agencyId, newSortBy, newOrder);
     },
-    [loadUsers, page, search]
+    [loadUsers, page, search, agencyId]
   );
 
   useEffect(() => {
-    loadUsers(page, search);
+    loadUsers(page, search, agencyId);
   }, [page]);
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
     setPage(1);
-    loadUsers(1, search);
+    loadUsers(1, search, agencyId);
+  }
+
+  function handleAgencyFilterChange(newAgencyId: string | null) {
+    setAgencyId(newAgencyId);
+    setPage(1);
+    loadUsers(1, search, newAgencyId);
   }
 
   async function handleDisable(userId: string) {
@@ -149,6 +158,7 @@ export default function SuperadminUsersPage() {
     <PageContainer title="Platform Users">
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
+          <AgencyFilter value={agencyId} onChange={handleAgencyFilterChange} placeholder="All agencies" />
           <form onSubmit={handleSearchSubmit} className="flex gap-2">
           <input
             type="search"
@@ -176,6 +186,7 @@ export default function SuperadminUsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Agency</TableHead>
                     <SortableHead
                       label="Email"
                       sortKey="email"
@@ -191,7 +202,6 @@ export default function SuperadminUsersPage() {
                       currentOrder={sortOrder}
                       onSort={handleSort}
                     />
-                    <TableHead>Agency</TableHead>
                     <SortableHead
                       label="Status"
                       sortKey="status"
@@ -219,10 +229,10 @@ export default function SuperadminUsersPage() {
                   ) : (
                     list.map((user) => (
                       <TableRow key={user.id}>
+                        <TableCell className="text-text-secondary">{user.agencyName ?? "—"}</TableCell>
                         <TableCell className="font-medium">{user.email}</TableCell>
                         <TableCell className="text-text-secondary">{user.name ?? "—"}</TableCell>
                         <TableCell>{user.role}</TableCell>
-                        <TableCell className="text-text-secondary">{user.agencyName ?? "—"}</TableCell>
                         <TableCell>
                           <span
                             className={
@@ -246,7 +256,7 @@ export default function SuperadminUsersPage() {
                             <Link
                               href={ROUTES.SUPERADMIN_USER_EDIT(user.id)}
                               title="Edit user"
-                              className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-text-primary"
+                              className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-text-primary inline-block"
                             >
                               <Pencil className="h-4 w-4" aria-hidden />
                             </Link>
