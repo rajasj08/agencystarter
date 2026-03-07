@@ -4,8 +4,28 @@ import { AppError } from "../../../errors/AppError.js";
 import { getAllowedReturnUrl } from "./redirect-validation.js";
 import { SsoService } from "./sso.service.js";
 import { BaseController } from "../../../core/BaseController.js";
+import { logger } from "../../../utils/logger.js";
 
 const ssoService = new SsoService();
+
+/** Safe short message for redirect (no tokens or secrets). */
+function getSafeErrorMessage(err: unknown): string {
+  if (err instanceof AppError) return err.message;
+  if (err instanceof Error) {
+    const msg = err.message || "SSO failed";
+    // Never expose secrets or raw tokens
+    if (/secret|password|Bearer\s|access_token|refresh_token|authorization\s*header/i.test(msg)) {
+      return "Sign-in failed. Check backend logs for details.";
+    }
+    // Allow common OAuth/OIDC error codes (safe, user-actionable)
+    if (/invalid_grant|invalid_client|redirect_uri|access_denied|expired|invalid_token|invalid_request|unauthorized_client|consent_required|login_required|interaction_required|account_selection_required|request_not_supported/i.test(msg)) {
+      return msg.length <= 100 ? msg : msg.slice(0, 97) + "...";
+    }
+    if (msg.length <= 80 && !/token|secret|password/i.test(msg)) return msg;
+    return "Sign-in failed. Check backend logs for details.";
+  }
+  return "SSO failed. Please try again.";
+}
 
 function getClientMeta(req: Request): { ipAddress?: string; userAgent?: string } {
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.socket?.remoteAddress;
@@ -60,21 +80,49 @@ export class SsoController extends BaseController {
         returnUrl,
         getClientMeta(req)
       );
+      if (returnUrl && getAllowedReturnUrl(returnUrl)) {
+        res.cookie("sso_return_url", returnUrl, {
+          httpOnly: true,
+          sameSite: "lax",
+          maxAge: 5 * 60 * 1000,
+          path: "/",
+          secure: env.NODE_ENV === "production",
+        });
+      }
       res.redirect(302, redirectUrl);
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errName = err instanceof Error ? err.name : "Error";
+      logger.error(`SSO initiate failed: ${errName} - ${errMsg}`, err);
       this.handleSsoError(req, res, err, undefined);
     }
   };
 
-  /** IdP callback. Query: code, state. Backend uses fixed callback URL (no redirect_uri from client). */
+  /** IdP callback. Query or body (POST form): code, state. Backend uses fixed callback URL. */
   callback = async (req: Request, res: Response): Promise<void> => {
     const { provider } = this.getParams(req);
     const query = this.getQuery(req);
-    const code = (query.code as string)?.trim();
-    const state = (query.state as string)?.trim() ?? (req.cookies?.auth_sso_state as string)?.trim();
+    const body = (req.body as Record<string, unknown>) || {};
+    const code = (query.code as string)?.trim() || (body.code as string)?.trim();
+    const state = (query.state as string)?.trim() || (body.state as string)?.trim() || (req.cookies?.auth_sso_state as string)?.trim();
 
     if (!code || !state) {
-      this.redirectToAppWithError(res, "Missing code or state");
+      logger.warn("SSO callback: missing code or state", {
+        hasQueryCode: Boolean((query.code as string)?.trim()),
+        hasQueryState: Boolean((query.state as string)?.trim()),
+        method: req.method,
+      });
+      const returnUrlFromCookie = req.cookies?.sso_return_url as string | undefined;
+      const allowedReturn = returnUrlFromCookie ? getAllowedReturnUrl(returnUrlFromCookie) : null;
+      const message =
+        "Missing code or state. Set your IdP application to \"Regular Web Application\" and ensure the callback uses query parameters (not URL fragment).";
+      res.clearCookie("sso_return_url", { path: "/" });
+      if (allowedReturn) {
+        const params = new URLSearchParams({ error: "sso_failed", error_description: message });
+        res.redirect(302, `${allowedReturn}#${params.toString()}`);
+      } else {
+        this.redirectToAppWithError(res, message);
+      }
       return;
     }
 
@@ -92,8 +140,14 @@ export class SsoController extends BaseController {
         refresh_token: tokens.refreshToken,
         expires_in: String(tokens.expiresIn),
       }).toString();
+      res.clearCookie("sso_return_url", { path: "/" });
       res.redirect(302, `${target}#${hash}`);
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errName = err instanceof Error ? err.name : "Error";
+      const cause = err instanceof Error && "cause" in err ? (err as Error & { cause?: unknown }).cause : undefined;
+      const causeMsg = cause instanceof Error ? cause.message : cause != null ? String(cause) : "";
+      logger.error(`SSO callback failed: ${errName} - ${errMsg}${causeMsg ? ` (cause: ${causeMsg})` : ""}`, err);
       this.handleSsoError(req, res, err, state);
     }
   };
@@ -109,10 +163,16 @@ export class SsoController extends BaseController {
     }
   }
 
-  private redirectToAppWithError(res: Response, message: string): void {
-    const target = env.CORS_ORIGIN;
-    const hash = new URLSearchParams({ error: "sso_failed", error_description: message }).toString();
-    res.redirect(302, `${target}/login?${hash}`);
+  private redirectToAppWithError(res: Response, message: string, state?: string): void {
+    const returnUrl = state ? this.getReturnUrlFromState(state) : null;
+    const allowedReturnUrl = returnUrl ? getAllowedReturnUrl(returnUrl) : null;
+    const params = new URLSearchParams({ error: "sso_failed", error_description: message });
+    if (allowedReturnUrl) {
+      res.redirect(302, `${allowedReturnUrl}#${params.toString()}`);
+    } else {
+      const target = env.CORS_ORIGIN.split(",")[0]?.trim() || env.CORS_ORIGIN;
+      res.redirect(302, `${target}/login?${params.toString()}`);
+    }
   }
 
   private handleSsoError(
@@ -142,6 +202,7 @@ export class SsoController extends BaseController {
       this.fail(res, "INTERNAL_ERROR", "SSO failed", 500);
       return;
     }
-    this.redirectToAppWithError(res, "SSO failed. Please try again.");
+    const message = getSafeErrorMessage(err);
+    this.redirectToAppWithError(res, message, state);
   }
 }

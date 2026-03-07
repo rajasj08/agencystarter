@@ -14,4 +14,6 @@ export interface SsoStatePayload {
   agencyId: string;
   returnUrl?: string;
   nonce: string;
+  /** PKCE code_verifier for openid-client v6 authorization code flow. */
+  pkceCodeVerifier?: string;
 }

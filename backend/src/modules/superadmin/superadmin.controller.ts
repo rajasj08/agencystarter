@@ -11,6 +11,7 @@ import {
   updateAgencyPlanSchema,
   listUsersQuerySchema,
   setUserRoleSchema,
+  setUserStatusSchema,
   createUserSchema,
   type ListUsersQuery,
 } from "./superadmin.validation.js";
@@ -250,7 +251,7 @@ export class SuperadminController extends BaseController {
 
   getUsers = async (req: AuthRequest, res: Response): Promise<void> => {
     const { page, limit } = this.getPagination(req);
-    const query = this.getQuery<{ search?: string; sortBy?: string; order?: string; agencyId?: string }>(req);
+    const query = this.getQuery<{ search?: string; sortBy?: string; order?: string; agencyId?: string; status?: string }>(req);
     const parsed = listUsersQuerySchema.safeParse({ ...query, page, limit });
     const opts = parsed.success
       ? parsed.data
@@ -261,6 +262,7 @@ export class SuperadminController extends BaseController {
           sortBy: undefined as ListUsersQuery["sortBy"],
           order: undefined as ListUsersQuery["order"],
           agencyId: undefined as string | undefined,
+          status: undefined as ListUsersQuery["status"],
         };
     const agencyIdFilter =
       req.user?.isSuperAdmin === true && opts.agencyId?.trim() ? opts.agencyId.trim() : undefined;
@@ -271,6 +273,7 @@ export class SuperadminController extends BaseController {
       sortBy: opts.sortBy,
       order: opts.order,
       agencyId: agencyIdFilter,
+      status: opts.status,
     });
     this.paginated(res, data, total, { page: opts.page ?? page, limit: opts.limit ?? limit }, RESPONSE_CODES.FETCHED);
   };
@@ -338,6 +341,67 @@ export class SuperadminController extends BaseController {
     }
     const data = await service.resetUserPassword(req, userId);
     this.success(res, data, RESPONSE_CODES.SUCCESS, "Temporary password generated");
+  };
+
+  sendPasswordResetEmail = async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = this.getParams(req).id;
+    if (!userId) {
+      this.fail(res, "VALIDATION_ERROR", "User ID is required", 400);
+      return;
+    }
+    const data = await service.sendPasswordResetEmail(req, userId);
+    this.success(res, data, RESPONSE_CODES.SUCCESS, "Password reset email sent");
+  };
+
+  deleteUser = async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = this.getParams(req).id;
+    if (!userId) {
+      this.fail(res, "VALIDATION_ERROR", "User ID is required", 400);
+      return;
+    }
+    await service.deleteUser(req, userId);
+    this.success(res, null, RESPONSE_CODES.DELETED, "User deleted");
+  };
+
+  restoreUser = async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = this.getParams(req).id;
+    if (!userId) {
+      this.fail(res, "VALIDATION_ERROR", "User ID is required", 400);
+      return;
+    }
+    const data = await service.restoreUser(req, userId);
+    this.success(res, data, RESPONSE_CODES.UPDATED, "User restored");
+  };
+
+  setUserStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = this.getParams(req).id;
+    if (!userId) {
+      this.fail(res, "VALIDATION_ERROR", "User ID is required", 400);
+      return;
+    }
+    const parsed = setUserStatusSchema.safeParse(this.getBody(req));
+    if (!parsed.success) {
+      this.fail(
+        res,
+        "VALIDATION_ERROR",
+        "Validation failed",
+        400,
+        parsed.error.flatten().fieldErrors as Record<string, unknown>
+      );
+      return;
+    }
+    const data = await service.setUserStatus(req, userId, parsed.data.status);
+    this.success(res, data, RESPONSE_CODES.UPDATED, "Status updated");
+  };
+
+  getAgencyRoles = async (req: AuthRequest, res: Response): Promise<void> => {
+    const agencyId = this.getParams(req).id;
+    if (!agencyId) {
+      this.fail(res, "VALIDATION_ERROR", "Agency ID is required", 400);
+      return;
+    }
+    const data = await service.getAgencyRoles(agencyId);
+    this.success(res, data, RESPONSE_CODES.FETCHED);
   };
 
   getAuditLogs = async (req: AuthRequest, res: Response): Promise<void> => {

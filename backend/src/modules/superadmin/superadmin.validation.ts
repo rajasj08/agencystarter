@@ -79,20 +79,26 @@ export const listUsersQuerySchema = z.object({
   sortBy: z.enum(["createdAt", "email", "role", "status"]).optional(),
   order: z.enum(["asc", "desc"]).optional(),
   agencyId: z.string().min(1).max(100).optional(),
+  status: z.enum(["ACTIVE", "DISABLED", "SUSPENDED", "INVITED", "PENDING", "DELETED"]).optional(),
 });
 
-// PATCH /superadmin/users/:id/role
+// PATCH /superadmin/users/:id/role — role name (system or custom) for the user's agency
 export const setUserRoleSchema = z.object({
-  role: z.enum(["AGENCY_ADMIN", "AGENCY_MEMBER", "USER"]),
+  role: z.string().min(1, "Role is required"),
 });
 
-// POST /superadmin/users: create user in an agency
+// PATCH /superadmin/users/:id/status — only editable statuses; INVITED and PENDING_VERIFICATION are system-controlled
+export const setUserStatusSchema = z.object({
+  status: z.enum(["ACTIVE", "DISABLED", "SUSPENDED"]),
+});
+
+// POST /superadmin/users: create user in an agency. Role can be any role name that exists for the agency (built-in or custom).
 export const createUserSchema = z
   .object({
     agencyId: z.string().min(1, "Agency is required"),
     email: z.string().email("Valid email is required").transform((s) => s.trim().toLowerCase()),
     password: z.string().min(8, "Password must be at least 8 characters"),
-    role: z.enum(["AGENCY_ADMIN", "AGENCY_MEMBER", "USER"]),
+    role: z.string().min(1, "Role is required"),
     name: z.string().max(200).optional(),
   })
   .strict();
@@ -105,4 +111,5 @@ export type UpdateAgencyInput = z.infer<typeof updateAgencySchema>;
 export type UpdateAgencyPlanInput = z.infer<typeof updateAgencyPlanSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type SetUserRoleInput = z.infer<typeof setUserRoleSchema>;
+export type SetUserStatusInput = z.infer<typeof setUserStatusSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;

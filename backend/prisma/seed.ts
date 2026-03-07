@@ -22,7 +22,17 @@ async function main() {
     },
   });
 
-  const { roleAgencyAdmin } = await createAgencyRoles(prisma, agency.id);
+  // Sync built-in roles for all agencies (idempotent). Ensures AGENCY_ADMIN has full user permissions including user:delete.
+  const allAgencies = await prisma.agency.findMany({ select: { id: true } });
+  let roleAgencyAdmin: { id: string } = { id: "" };
+  for (const a of allAgencies) {
+    const result = await createAgencyRoles(prisma, a.id);
+    if (a.id === agency.id) roleAgencyAdmin = result.roleAgencyAdmin;
+  }
+  if (!roleAgencyAdmin.id) {
+    const result = await createAgencyRoles(prisma, agency.id);
+    roleAgencyAdmin = result.roleAgencyAdmin;
+  }
 
   await prisma.user.upsert({
     where: { email: "admin@demo.com" },

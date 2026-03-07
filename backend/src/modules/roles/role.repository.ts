@@ -17,10 +17,10 @@ export class RoleRepository {
     });
   }
 
-  /** Tenant role: by name and agency (for user assignation). */
+  /** Tenant role: by name and agency (system or custom, for user assignation and default-role setting). */
   findRoleByNameAndAgency(agencyId: string, name: string) {
     return this.prisma.role.findFirst({
-      where: { name, agencyId, isSystem: true },
+      where: { name, agencyId },
     });
   }
 

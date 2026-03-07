@@ -143,6 +143,7 @@ model User {
   status                    UserStatus    @default(ACTIVE)
   role                      String?       // Legacy: used until roleId backfilled; then removed
   permissionSnapshotVersion Int           @default(1)
+  forcePasswordChange       Boolean       @default(false)
   emailVerifiedAt           DateTime?
   lastLoginAt               DateTime?
   createdAt                 DateTime      @default(now())

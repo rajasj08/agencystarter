@@ -14,7 +14,7 @@ export function useAuthorization() {
 
   return useMemo(() => {
     const isSuperAdmin = isSuperAdminUser(user);
-    const permSet = new Set(permissions);
+    const permSet = new Set(permissions ?? []);
 
     const hasPermission = (required: string): boolean =>
       hasPermissionFn(permSet, required, isSuperAdmin);

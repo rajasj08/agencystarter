@@ -20,6 +20,12 @@ router.post("/", requirePermission(PERMISSIONS.USER_CREATE, PERMISSIONS.ADMIN_AL
 router.get("/:id", requirePermission(PERMISSIONS.USER_READ, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.getById.bind(controller)));
 router.patch("/:id", requirePermission(PERMISSIONS.USER_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.update.bind(controller)));
 router.delete("/:id", requirePermission(PERMISSIONS.USER_DELETE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.delete.bind(controller)));
+router.post("/:id/restore", requirePermission(PERMISSIONS.USER_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.restore.bind(controller)));
 router.post("/:id/send-password-reset", requirePermission(PERMISSIONS.USER_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.sendPasswordReset.bind(controller)));
+router.post("/:id/activate", requirePermission(PERMISSIONS.USER_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.activateUser.bind(controller)));
+router.post("/:id/suspend", requirePermission(PERMISSIONS.USER_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.suspendUser.bind(controller)));
+router.post("/:id/disable", requirePermission(PERMISSIONS.USER_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.disableUser.bind(controller)));
+router.post("/:id/resend-invite", requirePermission(PERMISSIONS.USER_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.resendInvite.bind(controller)));
+router.post("/:id/set-password", requirePermission(PERMISSIONS.USER_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.setPassword.bind(controller)));
 
 export const userRoutes = router;

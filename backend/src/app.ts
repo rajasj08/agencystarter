@@ -6,6 +6,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env.js";
@@ -33,6 +34,8 @@ export function createApp(): express.Express {
     })
   );
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
   app.use(maintenanceMiddleware);
 
   if (!isTest) {

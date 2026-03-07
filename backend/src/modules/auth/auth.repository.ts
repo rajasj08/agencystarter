@@ -21,6 +21,75 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
+  /** Find user by email and agency including soft-deleted (for SSO restore-after-delete). */
+  findByEmailAndAgencyIncludingDeleted(email: string, agencyId: string) {
+    return this.prisma.user.findFirst({
+      where: { email: email.toLowerCase(), agencyId },
+      include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } },
+    });
+  }
+
+  /** Find user by email including soft-deleted (for admin create: restore or reject if deleted elsewhere). */
+  findByEmailIncludingDeleted(email: string) {
+    return this.prisma.user.findFirst({
+      where: { email: email.toLowerCase() },
+      include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } },
+    });
+  }
+
+  /** Restore a soft-deleted user with admin-supplied fields (role, password, status, displayName). Makes account LOCAL. */
+  restoreUserForAdmin(
+    userId: string,
+    data: {
+      roleId: string;
+      status: UserStatus;
+      passwordHash: string;
+      displayName?: string | null;
+    }
+  ) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        deletedAt: null,
+        roleId: data.roleId,
+        status: data.status,
+        passwordHash: data.passwordHash,
+        displayName: data.displayName ?? null,
+        authProvider: "LOCAL",
+        providerId: null,
+      },
+      include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } },
+    });
+  }
+
+  /** Restore a soft-deleted user and set SSO fields so they can sign in again via SSO. */
+  restoreUserForSso(
+    userId: string,
+    data: {
+      authProvider: "OIDC";
+      providerId: string;
+      roleId?: string;
+      displayName?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+    }
+  ) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        deletedAt: null,
+        status: "ACTIVE" as UserStatus,
+        authProvider: data.authProvider,
+        providerId: data.providerId,
+        ...(data.roleId != null && { roleId: data.roleId }),
+        ...(data.displayName != null && { displayName: data.displayName }),
+        ...(data.firstName != null && { firstName: data.firstName }),
+        ...(data.lastName != null && { lastName: data.lastName }),
+      },
+      include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } },
+    });
+  }
+
   /** Find user by OIDC provider and provider subject id (for SSO link). */
   findByProviderId(provider: string, providerId: string) {
     return this.prisma.user.findFirst({
@@ -87,10 +156,13 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
-  updatePassword(userId: string, passwordHash: string) {
+  updatePassword(userId: string, passwordHash: string, options?: { forcePasswordChange?: boolean }) {
     return this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash },
+      data: {
+        passwordHash,
+        ...(options?.forcePasswordChange !== undefined && { forcePasswordChange: options.forcePasswordChange }),
+      },
     });
   }
 

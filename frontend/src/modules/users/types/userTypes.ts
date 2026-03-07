@@ -2,7 +2,7 @@
  * User module types. Align with backend UserPublicDTO / create / update.
  */
 
-export type UserStatus = "ACTIVE" | "DISABLED" | "SUSPENDED" | "INVITED";
+export type UserStatus = "ACTIVE" | "DISABLED" | "SUSPENDED" | "INVITED" | "PENDING_VERIFICATION";
 
 export interface UserAgencyRef {
   id: string;
@@ -23,6 +23,8 @@ export interface User {
   name: string | null;
   status: UserStatus;
   role: string;
+  /** Present when backend includes roleRef/id; may be missing on older list responses. */
+  roleId?: string | null;
   agencyId: string | null;
   agency: UserAgencyRef | null;
   emailVerifiedAt: string | null;
@@ -30,20 +32,23 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   updatedBy: UserEditorRef | null;
+  /** Set when user is soft-deleted (list with status=DELETED). */
+  deletedAt?: string | null;
 }
 
 export interface UserCreateInput {
   email: string;
   name?: string | null;
-  role: string;
+  roleId: string;
   invite?: boolean;
   password?: string;
 }
 
+/** Only ACTIVE, SUSPENDED, DISABLED are editable; INVITED and PENDING_VERIFICATION are system-controlled. */
 export interface UserUpdateInput {
   name?: string | null;
-  role?: string;
-  status?: UserStatus;
+  roleId?: string;
+  status?: "ACTIVE" | "DISABLED" | "SUSPENDED";
 }
 
 export interface UserListParams {

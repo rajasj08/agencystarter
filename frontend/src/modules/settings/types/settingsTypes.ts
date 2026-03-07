@@ -22,6 +22,8 @@ export interface AgencySettings {
   // User management
   allowSelfRegistration?: boolean;
   defaultUserRole?: string | null;
+  /** Role ID (UUID). Preferred; stable when role is renamed. */
+  defaultUserRoleId?: string | null;
   requireAdminApproval?: boolean;
   allowUserInvitations?: boolean;
   // SMTP

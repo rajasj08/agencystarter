@@ -1,57 +1,82 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormProviderWrapper } from "@/components/forms";
-import { FormSelect } from "@/components/forms";
 import { AppButton, ToggleSwitch } from "@/components/design";
+import { RoleSelect } from "@/modules/roles";
 import type { AgencySettings } from "../types/settingsTypes";
+import type { Role } from "@/modules/roles/types/roleTypes";
 
 const schema = z.object({
   allowSelfRegistration: z.boolean(),
-  defaultUserRole: z.string().max(50).optional().nullable(),
+  defaultUserRoleId: z.string().min(1).max(100).optional().nullable().or(z.literal("")).transform((v) => (v === "" ? null : v)),
   requireAdminApproval: z.boolean(),
   allowUserInvitations: z.boolean(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
-const roleOptions = [
-  { value: "user", label: "User" },
-  { value: "agency_admin", label: "Agency Admin" },
-  { value: "admin", label: "Admin" },
-];
+/** Resolve initial default role id: prefer defaultUserRoleId; else find role by legacy defaultUserRole (name). */
+function getInitialDefaultRoleId(
+  defaultUserRoleId: string | null | undefined,
+  defaultUserRole: string | null | undefined,
+  roles: Role[]
+): string {
+  if (defaultUserRoleId && roles.some((r) => r.id === defaultUserRoleId)) return defaultUserRoleId;
+  const name = !defaultUserRole || typeof defaultUserRole !== "string" ? "USER" : defaultUserRole.trim();
+  const byName = roles.find((r) => r.name === name || r.name.toLowerCase() === name.toLowerCase());
+  return byName?.id ?? roles[0]?.id ?? "";
+}
 
 export interface UserManagementSettingsFormProps {
   initialData?: AgencySettings | null;
+  /** Agency roles (system + custom) for Default user role dropdown. */
+  roles?: Role[];
   onSubmit: (values: FormValues) => void | Promise<void>;
   loading?: boolean;
 }
 
-export function UserManagementSettingsForm({ initialData, onSubmit, loading = false }: UserManagementSettingsFormProps) {
+export function UserManagementSettingsForm({ initialData, roles = [], onSubmit, loading = false }: UserManagementSettingsFormProps) {
+  const roleOptions = useMemo(
+    () => roles.map((r) => ({ value: r.id, label: r.name })),
+    [roles]
+  );
+
+  const initialDefaultRoleId = getInitialDefaultRoleId(
+    initialData?.defaultUserRoleId,
+    initialData?.defaultUserRole,
+    roles
+  );
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       allowSelfRegistration: initialData?.allowSelfRegistration ?? true,
-      defaultUserRole: initialData?.defaultUserRole ?? "user",
+      defaultUserRoleId: initialDefaultRoleId || null,
       requireAdminApproval: initialData?.requireAdminApproval ?? false,
       allowUserInvitations: initialData?.allowUserInvitations ?? true,
     },
   });
 
   useEffect(() => {
-    if (initialData) {
+    if (initialData || roles.length) {
+      const defaultRoleId = getInitialDefaultRoleId(
+        initialData?.defaultUserRoleId,
+        initialData?.defaultUserRole,
+        roles
+      );
       form.reset({
-        allowSelfRegistration: initialData.allowSelfRegistration ?? true,
-        defaultUserRole: initialData.defaultUserRole ?? "user",
-        requireAdminApproval: initialData.requireAdminApproval ?? false,
-        allowUserInvitations: initialData.allowUserInvitations ?? true,
+        allowSelfRegistration: initialData?.allowSelfRegistration ?? true,
+        defaultUserRoleId: defaultRoleId || null,
+        requireAdminApproval: initialData?.requireAdminApproval ?? false,
+        allowUserInvitations: initialData?.allowUserInvitations ?? true,
       });
     }
-  }, [initialData]);
+  }, [initialData, roles]);
 
   return (
     <div className="max-w-[50%]">
@@ -68,10 +93,10 @@ export function UserManagementSettingsForm({ initialData, onSubmit, loading = fa
             </div>
             <ToggleSwitch id="allowSelfRegistration" {...form.register("allowSelfRegistration")} />
           </div>
-          <FormSelect
-            name="defaultUserRole"
+          <RoleSelect
+            name="defaultUserRoleId"
             label="Default user role"
-            options={roleOptions}
+            options={roleOptions.length > 0 ? roleOptions : undefined}
             helperText="Role assigned to new users (e.g. self-registered or invited)."
           />
           <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">

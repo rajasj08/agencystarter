@@ -15,7 +15,9 @@ export async function getUsers(params: UserListParams = {}): Promise<{ data: Use
     status: params.status,
   });
   const { data } = await api.get<ApiPaginated<User>>(`/users${query}`);
-  return { data: data.data, meta: data.meta };
+  const list = Array.isArray(data?.data) ? data.data : [];
+  const meta = data?.meta ?? { total: 0, page: 1, limit: 10, pages: 1 };
+  return { data: list, meta };
 }
 
 export async function getUserById(id: string): Promise<User> {
@@ -37,7 +39,37 @@ export async function deleteUser(id: string): Promise<void> {
   await api.delete(`/users/${id}`);
 }
 
+export async function restoreUser(id: string): Promise<User> {
+  const { data } = await api.post<ApiSuccess<User>>(`/users/${id}/restore`, {});
+  return data.data;
+}
+
 export async function sendPasswordReset(id: string): Promise<{ message: string }> {
   const { data } = await api.post<ApiSuccess<{ message: string }>>(`/users/${id}/send-password-reset`, {});
+  return data.data;
+}
+
+export async function activateUser(id: string): Promise<User> {
+  const { data } = await api.post<ApiSuccess<User>>(`/users/${id}/activate`, {});
+  return data.data;
+}
+
+export async function suspendUser(id: string): Promise<User> {
+  const { data } = await api.post<ApiSuccess<User>>(`/users/${id}/suspend`, {});
+  return data.data;
+}
+
+export async function disableUser(id: string): Promise<User> {
+  const { data } = await api.post<ApiSuccess<User>>(`/users/${id}/disable`, {});
+  return data.data;
+}
+
+export async function resendInvite(id: string): Promise<{ message: string }> {
+  const { data } = await api.post<ApiSuccess<{ message: string }>>(`/users/${id}/resend-invite`, {});
+  return data.data;
+}
+
+export async function setPassword(id: string, password: string): Promise<User> {
+  const { data } = await api.post<ApiSuccess<User>>(`/users/${id}/set-password`, { password });
   return data.data;
 }

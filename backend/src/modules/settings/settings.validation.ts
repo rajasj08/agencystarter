@@ -22,6 +22,8 @@ export const agencySettingsSchema = z.object({
   // User management
   allowSelfRegistration: z.boolean().optional(),
   defaultUserRole: z.string().max(50).optional().nullable(),
+  /** Role ID (CUID). Preferred over defaultUserRole; stable when role is renamed. */
+  defaultUserRoleId: z.string().min(1).max(100).optional().nullable(),
   requireAdminApproval: z.boolean().optional(),
   allowUserInvitations: z.boolean().optional(),
   // SMTP

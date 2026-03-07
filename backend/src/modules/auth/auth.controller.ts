@@ -117,8 +117,8 @@ export class AuthController extends BaseController {
       return;
     }
     const userId = (req as AuthRequest).user!.userId;
-    await authService.changePassword(userId, parsed.data);
-    this.success(res, { message: "Password has been changed" }, RESPONSE_CODES.SUCCESS);
+    const result = await authService.changePassword(userId, parsed.data);
+    this.success(res, { message: result.message, user: result.user }, RESPONSE_CODES.UPDATED, "Password changed");
   };
 
   updateProfile = async (req: Request, res: Response): Promise<void> => {

@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply bg-docs-bg text-docs-text antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Docs prose */
+.docs-prose {
+  @apply text-[15px] leading-relaxed;
+}
+.docs-prose h1 {
+  @apply text-2xl font-semibold tracking-tight text-docs-text border-b border-docs-border pb-3 mb-6;
+}
+.docs-prose h2 {
+  @apply text-lg font-semibold text-docs-text mt-10 mb-3 scroll-mt-20;
+}
+.docs-prose h3 {
+  @apply text-base font-semibold text-docs-text mt-6 mb-2;
+}
+.docs-prose p {
+  @apply text-docs-text-secondary mb-4;
+}
+.docs-prose ul, .docs-prose ol {
+  @apply mb-4 pl-6 text-docs-text-secondary;
+}
+.docs-prose ul { @apply list-disc; }
+.docs-prose ol { @apply list-decimal; }
+.docs-prose li { @apply mb-1; }
+.docs-prose a {
+  @apply text-docs-accent hover:text-docs-accent-hover underline underline-offset-2 transition-colors;
+}
+.docs-prose strong {
+  @apply font-semibold text-docs-text;
+}
+.docs-prose code:not(pre code) {
+  @apply rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[13px] text-slate-800;
+}
+.docs-prose pre {
+  @apply rounded-xl bg-slate-900 text-slate-100 p-4 overflow-x-auto text-sm leading-6 my-4;
+  font-family: ui-monospace, monospace;
+}
+.docs-prose pre code {
+  @apply bg-transparent p-0 text-inherit;
+}
+.docs-prose hr {
+  @apply border-docs-border my-8;
+}
+.docs-prose blockquote {
+  @apply border-l-4 border-docs-border pl-4 py-1 my-4 text-docs-text-muted italic;
+}
+.docs-prose table {
+  @apply my-4 w-full border-collapse text-sm;
+}
+.docs-prose th,
+.docs-prose td {
+  @apply border border-docs-border px-3 py-2 text-left;
+}
+.docs-prose th {
+  @apply bg-slate-50 font-semibold;
+}
+
+/* Subtle scrollbar */
+.docs-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.docs-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+.docs-scrollbar::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300 hover:bg-slate-400;
+}

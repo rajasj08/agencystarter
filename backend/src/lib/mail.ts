@@ -124,3 +124,25 @@ export async function sendPasswordResetEmail(
     text: `Hi ${userName ?? "there"},\n\nReset your password by opening this link (valid for ${expiryMinutes} minutes):\n${resetLink}\n\n— ${env.APP_NAME}`,
   });
 }
+
+/** Password reset email when sent by an admin (e.g. from edit user page). Uses different copy than user-initiated reset. */
+export async function sendPasswordResetByAdminEmail(
+  to: string,
+  userName: string | null,
+  resetLink: string,
+  expiryMinutes: string
+): Promise<boolean> {
+  const html = renderTemplate("password-reset-admin", {
+    appName: env.APP_NAME,
+    userName: userName ?? "there",
+    resetLink,
+    expiryMinutes,
+  });
+  const subject = `Reset your password – ${env.APP_NAME}`;
+  return sendMail({
+    to,
+    subject,
+    html,
+    text: `Hi ${userName ?? "there"},\n\nAn administrator has sent you a password reset link for your ${env.APP_NAME} account. Open the link below to set a new password (valid for ${expiryMinutes} minutes):\n${resetLink}\n\nIf you have any questions, contact your administrator.\n\n— ${env.APP_NAME}`,
+  });
+}

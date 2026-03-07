@@ -145,6 +145,8 @@ export interface PlatformUserListItem {
   status: string;
   createdAt: string;
   name?: string | null;
+  /** Set when user is soft-deleted; list shows "Deleted" instead of status. */
+  deletedAt?: string | null;
 }
 
 export interface PlatformUserDetail extends PlatformUserListItem {
@@ -154,6 +156,8 @@ export interface PlatformUserDetail extends PlatformUserListItem {
   agencyId: string | null;
   lastLoginAt: string | null;
   updatedAt: string;
+  /** Set when user is soft-deleted; show Restore instead of Delete on edit page. */
+  deletedAt?: string | null;
 }
 
 export interface UsersResponse {
@@ -329,7 +333,8 @@ export interface CreateUserInput {
   agencyId: string;
   email: string;
   password: string;
-  role: "AGENCY_ADMIN" | "AGENCY_MEMBER" | "USER";
+  /** Role name that exists for the agency (built-in or custom). */
+  role: string;
   name?: string;
 }
 
@@ -345,6 +350,7 @@ export async function getUsers(params?: {
   sortBy?: string;
   order?: "asc" | "desc";
   agencyId?: string | null;
+  status?: string;
 }): Promise<UsersResponse> {
   const sp = new URLSearchParams();
   if (params?.page != null) sp.set("page", String(params.page));
@@ -353,6 +359,7 @@ export async function getUsers(params?: {
   if (params?.sortBy) sp.set("sortBy", params.sortBy);
   if (params?.order) sp.set("order", params.order);
   if (params?.agencyId) sp.set("agencyId", params.agencyId);
+  if (params?.status) sp.set("status", params.status);
   const q = sp.toString();
   const res = await api.get<{ success: true; data: PlatformUserListItem[]; meta: PaginationMeta }>(
     `/superadmin/users${q ? `?${q}` : ""}`
@@ -379,10 +386,7 @@ export async function enableUser(userId: string): Promise<PlatformUserDetail> {
   return data.data;
 }
 
-export async function setUserRole(
-  userId: string,
-  role: "AGENCY_ADMIN" | "AGENCY_MEMBER" | "USER"
-): Promise<PlatformUserDetail> {
+export async function setUserRole(userId: string, role: string): Promise<PlatformUserDetail> {
   const { data } = await api.patch<ApiSuccess<PlatformUserDetail>>(
     `/superadmin/users/${userId}/role`,
     { role }
@@ -393,6 +397,59 @@ export async function setUserRole(
 export async function resetUserPassword(userId: string): Promise<{ temporaryPassword: string }> {
   const { data } = await api.patch<ApiSuccess<{ temporaryPassword: string }>>(
     `/superadmin/users/${userId}/reset-password`
+  );
+  return data.data;
+}
+
+export async function sendPasswordReset(userId: string): Promise<{ message: string; email: string }> {
+  const { data } = await api.post<ApiSuccess<{ message: string; email: string }>>(
+    `/superadmin/users/${userId}/send-password-reset`
+  );
+  return data.data;
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  await api.delete(`/superadmin/users/${userId}`);
+}
+
+export async function restoreUser(userId: string): Promise<PlatformUserDetail> {
+  const { data } = await api.post<ApiSuccess<PlatformUserDetail>>(
+    `/superadmin/users/${userId}/restore`,
+    {}
+  );
+  return data.data;
+}
+
+/** All possible user statuses (for display). */
+export type UserStatusValue =
+  | "ACTIVE"
+  | "DISABLED"
+  | "SUSPENDED"
+  | "INVITED"
+  | "PENDING_VERIFICATION";
+
+/** Only these can be set by admin; INVITED and PENDING_VERIFICATION are system-controlled. */
+export type SetUserStatusValue = "ACTIVE" | "DISABLED" | "SUSPENDED";
+
+export async function setUserStatus(
+  userId: string,
+  status: SetUserStatusValue
+): Promise<PlatformUserDetail> {
+  const { data } = await api.patch<ApiSuccess<PlatformUserDetail>>(
+    `/superadmin/users/${userId}/status`,
+    { status }
+  );
+  return data.data;
+}
+
+export interface AgencyRoleItem {
+  id: string;
+  name: string;
+}
+
+export async function getAgencyRoles(agencyId: string): Promise<AgencyRoleItem[]> {
+  const { data } = await api.get<ApiSuccess<AgencyRoleItem[]>>(
+    `/superadmin/agencies/${agencyId}/roles`
   );
   return data.data;
 }

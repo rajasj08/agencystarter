@@ -29,9 +29,11 @@ export interface ViewUserModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   canEdit?: boolean;
+  /** When true, hide the Agency field (e.g. in agency-scoped user list). */
+  hideAgency?: boolean;
 }
 
-export function ViewUserModal({ user, open, onOpenChange, canEdit }: ViewUserModalProps) {
+export function ViewUserModal({ user, open, onOpenChange, canEdit, hideAgency }: ViewUserModalProps) {
   if (!user) return null;
 
   return (
@@ -59,7 +61,7 @@ export function ViewUserModal({ user, open, onOpenChange, canEdit }: ViewUserMod
               <UserStatusBadge status={user.status} />
             </p>
           </div>
-          {user.agency && (
+          {user.agency && !hideAgency && (
             <div className="rounded-md border border-border bg-muted/30 p-3">
               <p className="text-xs font-medium text-text-secondary">Agency</p>
               <p className="mt-1 text-sm text-text-primary">{user.agency.name}</p>

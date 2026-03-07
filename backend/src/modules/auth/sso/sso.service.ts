@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
-import { authRepository as authRepo, agencyRepository as agencyRepo, roleRepository as roleRepo, auditLogRepository } from "../../../lib/data-access.js";
+import { authRepository as authRepo, agencyRepository as agencyRepo, roleRepository as roleRepo, settingsRepository as settingsRepo, auditLogRepository } from "../../../lib/data-access.js";
 import { AuthService } from "../auth.service.js";
+import { RolesService } from "../../roles/roles.service.js";
 import { AppError } from "../../../errors/AppError.js";
 import { ERROR_CODES } from "../../../constants/errorCodes.js";
 import { ROLES } from "../../../constants/roles.js";
@@ -20,6 +21,18 @@ function getSsoCallbackUrl(): string {
 /** Normalize email: trim, lowercase, NFKC (prevents Unicode lookalikes and case/whitespace issues). */
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase().normalize("NFKC");
+}
+
+/** Map agency setting defaultUserRole to backend role name. Legacy: "user"/"agency_admin"/"admin"; else use value as role name (supports custom roles). Fallback USER. */
+function settingValueToRoleName(value: string | null | undefined): string {
+  if (!value || typeof value !== "string") return ROLES.USER;
+  const v = value.trim();
+  const lower = v.toLowerCase();
+  if (lower === "agency_admin") return ROLES.AGENCY_ADMIN;
+  if (lower === "admin") return ROLES.AGENCY_MEMBER;
+  if (lower === "user") return ROLES.USER;
+  if (lower === "agency_member") return ROLES.AGENCY_MEMBER;
+  return v; // custom role name or exact system name (e.g. USER, AGENCY_ADMIN)
 }
 
 /** Recommended OAuth state TTL: 3–5 minutes. */
@@ -46,7 +59,7 @@ function encodeState(payload: SsoStatePayload): string {
  * Use generic "Not found" when agency missing to avoid enumeration.
  */
 function getOidcConfigFromAgency(
-  agency: { ssoConfig: unknown; ssoEnabled: boolean; ssoProvider: string | null } | null,
+  agency: { id: string; ssoConfig: unknown; ssoEnabled: boolean; ssoProvider: string | null } | null,
   provider: string
 ): OidcConfig {
   if (!agency) {
@@ -68,6 +81,25 @@ function getOidcConfigFromAgency(
 
 export class SsoService {
   private authService = new AuthService();
+  private rolesService = new RolesService();
+
+  /** Resolve agency default user role from settings (User Management → Default user role). Prefer role ID; fallback: USER. */
+  private async getDefaultUserRoleIdForAgency(agencyId: string): Promise<string> {
+    const raw = await settingsRepo.getAgencySettings(agencyId);
+    const settings = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+    const roleIdFromSettings = settings.defaultUserRoleId as string | null | undefined;
+    if (roleIdFromSettings && typeof roleIdFromSettings === "string") {
+      const role = await roleRepo.findRoleByIdAndAgency(roleIdFromSettings, agencyId);
+      if (role) return role.id;
+    }
+    const roleName = settingValueToRoleName(settings.defaultUserRole as string | null | undefined);
+    await this.rolesService.ensureAgencyRoles(agencyId);
+    const role = await roleRepo.findRoleByNameAndAgency(agencyId, roleName);
+    if (role) return role.id;
+    const fallback = await roleRepo.findRoleByNameAndAgency(agencyId, ROLES.USER);
+    if (!fallback) throw new AppError(ERROR_CODES.INTERNAL_ERROR, "Agency USER role not found", 500);
+    return fallback.id;
+  }
 
   /**
    * Public status for login page: whether SSO is enabled for an agency.
@@ -109,8 +141,9 @@ export class SsoService {
     const nonce = crypto.randomBytes(16).toString("hex");
     const statePayload: SsoStatePayload = { agencyId, returnUrl, nonce };
     const state = encodeState(statePayload);
+    const { url: authUrl, codeVerifier } = await oidcProvider.getAuthorizationUrl(config, redirectUri, state, { nonce });
+    statePayload.pkceCodeVerifier = codeVerifier;
     stateStore.set(state, { payload: statePayload, expires: Date.now() + STATE_TTL_MS });
-    const authUrl = await oidcProvider.getAuthorizationUrl(config, redirectUri, state, { nonce });
     return { redirectUrl: authUrl };
   }
 
@@ -135,12 +168,21 @@ export class SsoService {
       logger.warn("SSO callback: invalid or expired state", { provider, ipAddress: meta?.ipAddress });
       throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID, "Invalid or expired SSO state", 400);
     }
-    const { agencyId } = stored.payload;
+    const { agencyId, pkceCodeVerifier, nonce } = stored.payload;
+    if (!pkceCodeVerifier) {
+      logger.warn("SSO callback: missing pkceCodeVerifier in state", { provider, ipAddress: meta?.ipAddress });
+      throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID, "Invalid or expired SSO state", 400);
+    }
 
     const agency = await agencyRepo.findById(agencyId);
     const config = getOidcConfigFromAgency(agency, provider);
 
-    const { tokenSet, userinfo } = await oidcProvider.callback(config, redirectUri, { code, state });
+    const { tokenSet, userinfo } = await oidcProvider.callback(config, redirectUri, {
+      code,
+      state,
+      codeVerifier: pkceCodeVerifier,
+      nonce,
+    });
 
     const rawEmail = userinfo.email as string | undefined;
     if (rawEmail === undefined || String(rawEmail).trim() === "") {
@@ -149,7 +191,8 @@ export class SsoService {
     }
     const email = normalizeEmail(String(rawEmail));
 
-    const emailVerified = userinfo.email_verified === true || userinfo.email_verified === "true";
+    const ev = userinfo.email_verified;
+    const emailVerified = ev === true || String(ev).toLowerCase() === "true";
     if (!emailVerified) {
       logger.warn("SSO callback: email not verified", { agencyId, provider, ipAddress: meta?.ipAddress });
       throw new AppError(ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED, "Email must be verified by your identity provider", 403);
@@ -209,17 +252,30 @@ export class SsoService {
           throw new AppError(ERROR_CODES.USER_ALREADY_EXISTS, "An account with this email already exists. Sign in with password.", 409);
         }
       } else if (env.AUTH_SSO_AUTO_PROVISION) {
-        const systemUserRole = await roleRepo.findSystemRoleByName(ROLES.USER);
-        if (!systemUserRole) {
-          throw new AppError(ERROR_CODES.INTERNAL_ERROR, "System role USER not found", 500);
+        const deletedUser = await authRepo.findByEmailAndAgencyIncludingDeleted(email, agencyId);
+        if (deletedUser?.deletedAt != null) {
+          throw new AppError(
+            ERROR_CODES.AUTH_USER_DISABLED,
+            "Your account is deleted. Contact your administrator.",
+            403
+          );
         }
+        const deletedElsewhere = await authRepo.findByEmailIncludingDeleted(email);
+        if (deletedElsewhere?.deletedAt != null && deletedElsewhere.agencyId !== agencyId) {
+          throw new AppError(
+            ERROR_CODES.USER_ALREADY_EXISTS,
+            "A user with this email was previously in another organization. Contact support to reassign.",
+            409
+          );
+        }
+        const defaultRoleId = await this.getDefaultUserRoleIdForAgency(agencyId);
         user = await authRepo.createUser({
           email,
           passwordHash: null,
           displayName,
           firstName,
           lastName,
-          roleId: systemUserRole.id,
+          roleId: defaultRoleId,
           status: USER_STATUS.ACTIVE,
           agencyId,
           authProvider: "OIDC",
@@ -250,7 +306,7 @@ export class SsoService {
     }
 
     // Provider–agency binding: if user has providerId (OIDC), agency must be configured for same provider
-    if (user.authProvider === "OIDC" && user.providerId && agency.ssoProvider !== provider) {
+    if (user.authProvider === "OIDC" && user.providerId && agency!.ssoProvider !== provider) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "This account is not linked to this organization's SSO", 403);
     }
 

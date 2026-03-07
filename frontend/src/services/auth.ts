@@ -39,6 +39,8 @@ export interface AuthUser {
   impersonation?: boolean;
   /** Set when impersonation is true; the agency being impersonated. */
   impersonatingAgency?: { id: string; name: string } | null;
+  /** True when user must change password on next login (e.g. after admin-generated temporary password). */
+  forcePasswordChange?: boolean;
 }
 
 export interface SessionInfo {
@@ -148,13 +150,18 @@ export async function verifyEmail(token: string) {
   return data.data;
 }
 
+export interface ChangePasswordResponse {
+  message: string;
+  user: AuthUser | null;
+}
+
 export async function changePassword(
   currentPassword: string,
   newPassword: string,
   confirmNewPassword: string
-) {
+): Promise<ChangePasswordResponse> {
   try {
-    const { data } = await api.post<ApiSuccess<{ message: string }>>("/auth/change-password", {
+    const { data } = await api.post<ApiSuccess<ChangePasswordResponse>>("/auth/change-password", {
       currentPassword,
       newPassword,
       confirmNewPassword,

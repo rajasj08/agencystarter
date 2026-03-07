@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import { AgencyLoginHeader, AgencyLoginForm, AgencySSOLogin } from "@/components/agency";
@@ -16,8 +16,19 @@ type PageState =
 
 export default function AgencyLoginPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const agencySlug = typeof params.agencySlug === "string" ? params.agencySlug : "";
   const [state, setState] = useState<PageState>({ status: "loading" });
+  const [ssoError, setSsoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const error = searchParams.get("error");
+    const description = searchParams.get("error_description");
+    if (error === "sso_failed" && typeof window !== "undefined") {
+      setSsoError(description || "SSO sign-in failed. Please try again.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const slug = agencySlug?.trim().toLowerCase();
@@ -72,11 +83,16 @@ export default function AgencyLoginPage() {
     <AuthLayout>
       <div className="flex flex-col gap-6">
         <AgencyLoginHeader agency={agency} />
-
+        {ssoError && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {ssoError}
+          </div>
+        )}
         {agency.ssoEnabled ? (
           <>
             <AgencySSOLogin
               agencyId={agency.id}
+              agencySlug={agencySlug}
               ssoProvider={agency.ssoProvider ?? "oidc"}
             />
             {!ssoOnly && (

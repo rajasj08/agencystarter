@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n backend,frontend -c blue,magenta \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "concurrently -n backend,frontend,docsite -c blue,magenta,green \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:docsite\"",
     "dev:backend": "npm run dev --prefix backend",
-    "dev:frontend": "npm run dev --prefix frontend"
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:docsite": "npm run dev --prefix docsite"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

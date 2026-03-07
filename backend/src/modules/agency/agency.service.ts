@@ -7,6 +7,7 @@ import { ERROR_CODES } from "../../constants/errorCodes.js";
 import { get as getSystemConfig } from "../../services/SystemConfigCache.js";
 import { getPlanByCodeCached, getPlansCached } from "../../services/PlanCache.js";
 import type { CreateAgencyInput } from "./agency.validation.js";
+import { env } from "../../config/env.js";
 
 const rolesService = new RolesService();
 
@@ -31,13 +32,15 @@ export class AgencyService extends BaseService {
     if (!agency || agency.status !== "ACTIVE") {
       throw new AppError(ERROR_CODES.AGENCY_NOT_FOUND, "Agency not found", 404);
     }
+    // Global kill-switch: if SSO routes are disabled, the login page should not show SSO.
+    const ssoGloballyEnabled = env.AUTH_SSO_ENABLED;
     return {
       id: agency.id,
       name: agency.name,
       logoUrl: agency.logo ?? null,
-      ssoEnabled: agency.ssoEnabled ?? false,
-      ssoEnforced: agency.ssoEnforced ?? false,
-      ssoProvider: agency.ssoProvider ?? null,
+      ssoEnabled: ssoGloballyEnabled ? (agency.ssoEnabled ?? false) : false,
+      ssoEnforced: ssoGloballyEnabled ? (agency.ssoEnforced ?? false) : false,
+      ssoProvider: ssoGloballyEnabled ? (agency.ssoProvider ?? null) : null,
     };
   }
 

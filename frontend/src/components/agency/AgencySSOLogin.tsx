@@ -5,19 +5,25 @@ import { ROUTES } from "@/constants/routes";
 
 export interface AgencySSOLoginProps {
   agencyId: string;
+  /** Agency slug for return URL so errors/success stay in agency context. */
+  agencySlug?: string;
   /** Display name for the provider (e.g. "OIDC", "Google"). */
   ssoProvider: string;
 }
 
 /**
  * SSO login button for agency login page. Redirects to backend SSO initiate.
+ * When agencySlug is set, return_url includes it so errors redirect back to agency login.
  */
-export function AgencySSOLogin({ agencyId, ssoProvider }: AgencySSOLoginProps) {
+export function AgencySSOLogin({ agencyId, agencySlug, ssoProvider }: AgencySSOLoginProps) {
   function handleClick() {
-    const returnUrl =
-      typeof window !== "undefined"
-        ? `${window.location.origin}${ROUTES.LOGIN_CALLBACK}`
-        : "";
+    let returnUrl = "";
+    if (typeof window !== "undefined") {
+      const base = `${window.location.origin}${ROUTES.LOGIN_CALLBACK}`;
+      returnUrl = agencySlug
+        ? `${base}?from_agency=${encodeURIComponent(agencySlug)}`
+        : base;
+    }
     const params = new URLSearchParams({
       agencyId,
       ...(returnUrl ? { return_url: returnUrl } : {}),

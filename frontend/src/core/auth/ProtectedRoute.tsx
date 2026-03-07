@@ -50,6 +50,10 @@ export function ProtectedRoute({
       router.replace(ROUTES.LOGIN);
       return;
     }
+    if (user.forcePasswordChange && pathname !== ROUTES.CHANGE_PASSWORD) {
+      router.replace(ROUTES.CHANGE_PASSWORD);
+      return;
+    }
     if (!hasAccess) {
       if (!telemetryFired.current) {
         reportAccessDenied({

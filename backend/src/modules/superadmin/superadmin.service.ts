@@ -14,6 +14,8 @@ import { ROLES } from "../../constants/roles.js";
 import { AppError } from "../../errors/AppError.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
 import { audit } from "../../lib/audit.js";
+import { sendPasswordResetByAdminEmail } from "../../lib/mail.js";
+import { env } from "../../config/env.js";
 import type { AuthRequest } from "../../middleware/auth.js";
 import { refresh as refreshSystemConfigCache } from "../../services/SystemConfigCache.js";
 import { getUptimeSeconds } from "../../utils/uptime.js";
@@ -98,6 +100,8 @@ export interface PlatformUserListItemDTO {
   status: string;
   createdAt: Date;
   name?: string | null;
+  /** Set when user is soft-deleted; used in list to display "Deleted" instead of status. */
+  deletedAt: Date | null;
 }
 
 export interface PlatformUserDetailDTO extends PlatformUserListItemDTO {
@@ -107,6 +111,8 @@ export interface PlatformUserDetailDTO extends PlatformUserListItemDTO {
   agencyId: string | null;
   lastLoginAt: Date | null;
   updatedAt: Date;
+  /** Set when user is soft-deleted; used to show Restore instead of Delete on edit page. */
+  deletedAt: Date | null;
 }
 
 export interface SuperadminAuditEntryDTO {
@@ -584,9 +590,20 @@ export class SuperadminService {
         : ({ [sortBy]: order } as { createdAt?: "asc" | "desc"; email?: "asc" | "desc"; status?: "asc" | "desc" });
 
     // Platform scope only: agencyId is optional filter when provided by superadmin; never used for tenant isolation.
-    const where: Prisma.UserWhereInput = { deletedAt: null };
+    const showDeletedOnly = query.status === "DELETED";
+    const where: Prisma.UserWhereInput = showDeletedOnly ? { deletedAt: { not: null } } : { deletedAt: null };
     if (query.agencyId?.trim()) {
       where.agencyId = query.agencyId.trim();
+    }
+    if (!showDeletedOnly) {
+      if (query.status === "PENDING") {
+        where.status = { in: ["INVITED", "PENDING_VERIFICATION"] };
+      } else {
+        const validStatuses = ["ACTIVE", "DISABLED", "SUSPENDED", "INVITED"] as const;
+        if (query.status && validStatuses.includes(query.status as (typeof validStatuses)[number])) {
+          where.status = query.status as (typeof validStatuses)[number];
+        }
+      }
     }
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
@@ -613,6 +630,7 @@ export class SuperadminService {
       status: u.status,
       createdAt: u.createdAt,
       name: u.displayName ?? (u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : null),
+      deletedAt: u.deletedAt,
     }));
     return { data, total };
   }
@@ -629,6 +647,7 @@ export class SuperadminService {
       password: input.password,
       role: input.role,
       name: input.name ?? null,
+      displayName: input.name ?? null,
       invite: false,
     });
 
@@ -647,11 +666,12 @@ export class SuperadminService {
       status: created.status,
       createdAt: created.createdAt,
       name: created.name ?? null,
+      deletedAt: null,
     };
   }
 
   async getUserById(userId: string): Promise<PlatformUserDetailDTO | null> {
-    const user = await userRepository.findByIdForPlatform(userId);
+    const user = await userRepository.findByIdForPlatformIncludingDeleted(userId);
     if (!user) return null;
     const role = user.roleRef?.name ?? user.role ?? "USER";
     return {
@@ -668,6 +688,7 @@ export class SuperadminService {
       displayName: user.displayName,
       lastLoginAt: user.lastLoginAt,
       updatedAt: user.updatedAt,
+      deletedAt: user.deletedAt,
     };
   }
 
@@ -725,17 +746,140 @@ export class SuperadminService {
     if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin password cannot be reset via this API", 403);
     }
-    const temporaryPassword = crypto.randomBytes(8).toString("hex");
+    const allowedStatuses = ["ACTIVE", "SUSPENDED", "DISABLED"] as const;
+    if (!allowedStatuses.includes(user.status as (typeof allowedStatuses)[number])) {
+      throw new AppError(
+        ERROR_CODES.VALIDATION_ERROR,
+        "Password reset is only allowed for users with status Active, Suspended, or Disabled. Invited users must set their password via the invitation link.",
+        400
+      );
+    }
+    const temporaryPassword = crypto.randomBytes(12).toString("base64url");
     const passwordHash = await bcrypt.hash(temporaryPassword, 12);
-    await userRepository.updateByUserIdPlatform(userId, { passwordHash });
+    await userRepository.updateByUserIdPlatform(userId, { passwordHash, forcePasswordChange: true });
     await audit(req, {
       action: "SUPERADMIN_ACTION",
       resource: "user",
       resourceId: userId,
       targetUserId: userId,
-      details: { action: "USER_RESET_PASSWORD", email: user.email },
+      details: {
+        action: "USER_RESET_PASSWORD",
+        performedByUserId: req.user!.userId,
+        targetUserId: userId,
+        targetEmail: user.email,
+        timestamp: new Date().toISOString(),
+      },
     });
     return { temporaryPassword };
+  }
+
+  /** Send password reset email to a platform user (admin-initiated). Same flow as tenant; uses admin email copy. */
+  async sendPasswordResetEmail(req: AuthRequest, userId: string): Promise<{ message: string; email: string }> {
+    const user = await userRepository.findByIdForPlatform(userId);
+    if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
+    if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin password cannot be reset via this API", 403);
+    }
+    if (!user.passwordHash) {
+      throw new AppError(ERROR_CODES.VALIDATION_ERROR, "User has no password (SSO-only). Use invitation or set password instead.", 400);
+    }
+    await authRepository.deletePasswordResetsByUserId(user.id);
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    await authRepository.createPasswordReset(user.id, token, expiresAt);
+    const link = `${env.CORS_ORIGIN}/reset-password?token=${token}`;
+    const displayName =
+      (user.displayName?.trim() ?? [user.firstName, user.lastName].filter(Boolean).join(" ").trim()) || null;
+    await sendPasswordResetByAdminEmail(user.email, displayName || null, link, "60");
+    await audit(req, {
+      action: "SUPERADMIN_ACTION",
+      resource: "user",
+      resourceId: userId,
+      targetUserId: userId,
+      details: {
+        action: "USER_SEND_PASSWORD_RESET_EMAIL",
+        performedByUserId: req.user!.userId,
+        targetUserId: userId,
+        targetEmail: user.email,
+        timestamp: new Date().toISOString(),
+      },
+    });
+    return { message: "Password reset email sent", email: user.email };
+  }
+
+  async deleteUser(req: AuthRequest, userId: string): Promise<void> {
+    if (userId === req.user!.userId) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "You cannot delete your own account", 403);
+    }
+    const user = await userRepository.findByIdForPlatformIncludingDeleted(userId);
+    if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
+    if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot be deleted", 403);
+    }
+    await userRepository.softDeleteForPlatform(userId);
+    await audit(req, {
+      action: "SUPERADMIN_ACTION",
+      resource: "user",
+      resourceId: userId,
+      targetUserId: userId,
+      details: { action: "USER_DELETE", email: user.email },
+    });
+  }
+
+  async restoreUser(req: AuthRequest, userId: string): Promise<PlatformUserDetailDTO> {
+    const user = await userRepository.findByIdForPlatformIncludingDeleted(userId);
+    if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
+    if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot be modified", 403);
+    }
+    if (user.deletedAt == null) {
+      throw new AppError(ERROR_CODES.VALIDATION_ERROR, "User is not deleted", 400);
+    }
+    await userRepository.restoreUserForPlatform(userId);
+    await audit(req, {
+      action: "SUPERADMIN_ACTION",
+      resource: "user",
+      resourceId: userId,
+      targetUserId: userId,
+      details: { action: "USER_RESTORE", email: user.email },
+    });
+    const updated = await this.getUserById(userId);
+    return updated!;
+  }
+
+  /** Set user status. Only ACTIVE, DISABLED, SUSPENDED are editable; INVITED and PENDING_VERIFICATION are system-controlled. */
+  async setUserStatus(
+    req: AuthRequest,
+    userId: string,
+    status: "ACTIVE" | "DISABLED" | "SUSPENDED"
+  ): Promise<PlatformUserDetailDTO> {
+    if (userId === req.user!.userId && status !== "ACTIVE") {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "You cannot disable or suspend your own account", 403);
+    }
+    const user = await userRepository.findByIdForPlatform(userId);
+    if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
+    if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin status cannot be changed", 403);
+    }
+    await userRepository.updateByUserIdPlatform(userId, {
+      status,
+      ...(status === "ACTIVE" && { emailVerifiedAt: new Date() }),
+    });
+    await audit(req, {
+      action: "SUPERADMIN_ACTION",
+      resource: "user",
+      resourceId: userId,
+      targetUserId: userId,
+      details: { action: "USER_SET_STATUS", email: user.email, status },
+    });
+    const updated = await this.getUserById(userId);
+    return updated!;
+  }
+
+  /** List roles for an agency (for superadmin user edit role dropdown). */
+  async getAgencyRoles(agencyId: string): Promise<{ id: string; name: string }[]> {
+    const rows = await roleRepo.listRolesForAgency(agencyId);
+    return rows.map((r) => ({ id: r.id, name: r.name }));
   }
 
   async getAuditLogs(options: {

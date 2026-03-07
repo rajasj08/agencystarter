@@ -8,7 +8,7 @@ export default defineConfig({
     include: ["src/**/*.invariant.test.ts"],
     testTimeout: 15_000,
     hookTimeout: 10_000,
-    env: { NODE_ENV: "test" },
+    env: { NODE_ENV: "test", AUTH_SSO_ENABLED: "false" },
     globalSetup: "./scripts/test-db-global-setup.ts",
   },
   resolve: {

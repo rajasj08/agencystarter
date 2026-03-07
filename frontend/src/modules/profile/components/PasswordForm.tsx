@@ -7,7 +7,7 @@ import { z } from "zod";
 import { FormProviderWrapper } from "@/components/forms";
 import { FormPassword } from "@/components/forms";
 import { AppButton } from "@/components/design";
-import { changePassword } from "@/services/auth";
+import { changePassword, type ChangePasswordResponse } from "@/services/auth";
 import { AppCard } from "@/components/design";
 
 const schema = z
@@ -24,7 +24,8 @@ const schema = z
 type FormValues = z.infer<typeof schema>;
 
 export interface PasswordFormProps {
-  onSuccess?: () => void;
+  /** Called after successful password change. Receives API response (includes updated user when forced change). */
+  onSuccess?: (response: ChangePasswordResponse) => void;
   onError?: (message: string) => void;
 }
 
@@ -43,9 +44,9 @@ export function PasswordForm({ onSuccess, onError }: PasswordFormProps) {
     setLoading(true);
     form.clearErrors();
     try {
-      await changePassword(values.currentPassword, values.newPassword, values.confirmNewPassword);
+      const response = await changePassword(values.currentPassword, values.newPassword, values.confirmNewPassword);
       form.reset();
-      onSuccess?.();
+      onSuccess?.(response);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to change password";
       form.setError("root", { message });

@@ -18,6 +18,7 @@ router.patch("/system-settings", asyncHandler(controller.updateSystemSettings.bi
 router.get("/metrics", asyncHandler(controller.getMetrics.bind(controller)));
 router.get("/health", asyncHandler(controller.getHealth.bind(controller)));
 router.get("/agencies", asyncHandler(controller.getAgencies.bind(controller)));
+router.get("/agencies/:id/roles", asyncHandler(controller.getAgencyRoles.bind(controller)));
 router.get("/agencies/:id", asyncHandler(controller.getAgencyById.bind(controller)));
 router.post("/agencies", asyncHandler(controller.createAgency.bind(controller)));
 router.patch("/agencies/:id", asyncHandler(controller.updateAgency.bind(controller)));
@@ -35,6 +36,10 @@ router.patch("/users/:id/disable", asyncHandler(controller.disableUser.bind(cont
 router.patch("/users/:id/enable", asyncHandler(controller.enableUser.bind(controller)));
 router.patch("/users/:id/role", asyncHandler(controller.setUserRole.bind(controller)));
 router.patch("/users/:id/reset-password", asyncHandler(controller.resetUserPassword.bind(controller)));
+router.post("/users/:id/send-password-reset", asyncHandler(controller.sendPasswordResetEmail.bind(controller)));
+router.patch("/users/:id/status", asyncHandler(controller.setUserStatus.bind(controller)));
+router.delete("/users/:id", asyncHandler(controller.deleteUser.bind(controller)));
+router.post("/users/:id/restore", asyncHandler(controller.restoreUser.bind(controller)));
 
 router.post("/impersonate", asyncHandler(controller.impersonate.bind(controller)));
 router.post("/stop", asyncHandler(controller.stopImpersonation.bind(controller)));

@@ -110,5 +110,98 @@ export function useUserMutations() {
     }
   }, []);
 
-  return { createUser, updateUser, deleteUser, loading, error };
+  const restoreUser = useCallback(async (id: string): Promise<User | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await userService.restoreUser(id);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to restore user");
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const activateUser = useCallback(async (id: string): Promise<User | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await userService.activateUser(id);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to activate user");
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const suspendUser = useCallback(async (id: string): Promise<User | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await userService.suspendUser(id);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to suspend user");
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const disableUser = useCallback(async (id: string): Promise<User | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await userService.disableUser(id);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to disable user");
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const resendInvite = useCallback(async (id: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await userService.resendInvite(id);
+      return true;
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to resend invitation");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const sendPasswordReset = useCallback(async (id: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await userService.sendPasswordReset(id);
+      return true;
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to send password reset");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const setPassword = useCallback(async (id: string, password: string): Promise<User | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await userService.setPassword(id, password);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to set password");
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { createUser, updateUser, deleteUser, restoreUser, activateUser, suspendUser, disableUser, resendInvite, sendPasswordReset, setPassword, loading, error };
 }

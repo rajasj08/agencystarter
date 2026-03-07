@@ -32,7 +32,14 @@ export class UserRepository extends BaseRepository {
 
   async listByAgency(
     agencyId: string,
-    options: { offset: number; limit: number; sortBy?: string; sortOrder?: "asc" | "desc" }
+    options: {
+      offset: number;
+      limit: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+      search?: string;
+      status?: string;
+    }
   ) {
     const sortOrder = options.sortOrder ?? "desc";
     const orderBy =
@@ -41,26 +48,53 @@ export class UserRepository extends BaseRepository {
           ? ({ roleRef: { name: sortOrder } } as const)
           : { [options.sortBy]: sortOrder }
         : { createdAt: "desc" as const };
+    const showDeletedOnly = options.status === "DELETED";
+    const where: Prisma.UserWhereInput = {
+      ...(showDeletedOnly ? {} : this.activeOnly()),
+      ...tenantScopeStrict(agencyId),
+    };
+    if (showDeletedOnly) {
+      where.deletedAt = { not: null };
+    } else {
+      if (options.status === "PENDING") {
+        where.status = { in: ["INVITED", "PENDING_VERIFICATION"] };
+      } else {
+        const validStatuses = ["ACTIVE", "DISABLED", "SUSPENDED", "INVITED"] as const;
+        if (options.status && validStatuses.includes(options.status as (typeof validStatuses)[number])) {
+          where.status = options.status as (typeof validStatuses)[number];
+        }
+      }
+    }
+    if (options.search?.trim()) {
+      const term = `%${options.search.trim()}%`;
+      where.OR = [
+        { email: { contains: term, mode: "insensitive" } },
+        { displayName: { contains: term, mode: "insensitive" } },
+        { firstName: { contains: term, mode: "insensitive" } },
+        { lastName: { contains: term, mode: "insensitive" } },
+      ];
+    }
     const [data, total] = await Promise.all([
       this.prisma.user.findMany({
-        where: { ...this.activeOnly(), ...tenantScopeStrict(agencyId) },
+        where,
         include: { agency: true, roleRef: { select: { id: true, name: true } } },
         skip: options.offset,
         take: options.limit,
         orderBy,
       }),
-      this.prisma.user.count({ where: { ...this.activeOnly(), ...tenantScopeStrict(agencyId) } }),
+      this.prisma.user.count({ where }),
     ]);
     return { data, total };
   }
 
   async create(data: {
     email: string;
-    passwordHash: string;
+    passwordHash: string | null;
     displayName?: string | null;
     roleId: string;
     status: UserStatus;
     agencyId: string;
+    emailVerifiedAt?: Date | null;
   }) {
     return this.prisma.user.create({
       data: {
@@ -70,6 +104,7 @@ export class UserRepository extends BaseRepository {
         roleId: data.roleId,
         status: data.status,
         agencyId: data.agencyId,
+        emailVerifiedAt: data.emailVerifiedAt ?? undefined,
       },
       include: { agency: true, roleRef: { select: { id: true, name: true } } },
     });
@@ -78,15 +113,22 @@ export class UserRepository extends BaseRepository {
   async update(
     id: string,
     agencyId: string,
-    data: { displayName?: string | null; roleId?: string; status?: UserStatus; updatedById?: string | null },
+    data: {
+      displayName?: string | null;
+      roleId?: string;
+      status?: UserStatus;
+      updatedById?: string | null;
+      emailVerifiedAt?: Date | null;
+    },
     tx?: PrismaClientLike
   ) {
     const client = (tx ?? this.prisma) as PrismaClient;
-    const { roleId, updatedById, ...rest } = data;
+    const { roleId, updatedById, emailVerifiedAt, ...rest } = data;
     const updateData = {
       ...rest,
       ...(roleId !== undefined && { roleId }),
       ...(updatedById !== undefined && { updatedById }),
+      ...(emailVerifiedAt !== undefined && { emailVerifiedAt }),
     };
     return client.user.updateMany({
       where: { id, ...tenantScopeStrict(agencyId) },
@@ -101,11 +143,39 @@ export class UserRepository extends BaseRepository {
     });
   }
 
-  async softDelete(id: string, agencyId: string, tx?: PrismaClientLike) {
-    const client = (tx ?? this.prisma) as PrismaClient;
+  async softDelete(id: string, agencyId: string, options?: { tx?: PrismaClientLike; updatedById?: string | null }) {
+    const client = (options?.tx ?? this.prisma) as PrismaClient;
     return client.user.updateMany({
       where: { id, ...tenantScopeStrict(agencyId) },
-      data: { deletedAt: new Date(), status: "DISABLED" as UserStatus },
+      data: {
+        deletedAt: new Date(),
+        status: "DISABLED" as UserStatus,
+        ...(options?.updatedById !== undefined && { updatedById: options.updatedById }),
+      },
+    });
+  }
+
+  /** Find user by id and agency including soft-deleted (for restore validation and deleted-by display). */
+  async findByIdAndAgencyIncludingDeleted(id: string, agencyId: string) {
+    return this.prisma.user.findFirst({
+      where: { id, ...tenantScopeStrict(agencyId) },
+      include: {
+        agency: true,
+        roleRef: { select: { id: true, name: true } },
+        updatedBy: { select: { id: true, email: true, displayName: true, firstName: true, lastName: true } },
+      },
+    });
+  }
+
+  /** Restore soft-deleted user: set deletedAt = null, status = ACTIVE. Does not change authProvider, providerId, passwordHash. */
+  async restoreUser(id: string, agencyId: string) {
+    await this.prisma.user.updateMany({
+      where: { id, ...tenantScopeStrict(agencyId) },
+      data: { deletedAt: null, status: "ACTIVE" as UserStatus },
+    });
+    return this.prisma.user.findFirst({
+      where: { id, ...tenantScopeStrict(agencyId) },
+      include: { agency: true, roleRef: { select: { id: true, name: true } } },
     });
   }
 
@@ -166,10 +236,40 @@ export class UserRepository extends BaseRepository {
     });
   }
 
-  /** Platform only: update user by id (status, roleId, passwordHash). */
+  /** Platform only: get user by id including soft-deleted. For superadmin edit page. */
+  findByIdForPlatformIncludingDeleted(userId: string) {
+    return this.prisma.user.findFirst({
+      where: { id: userId },
+      include: { agency: { select: { id: true, name: true } }, roleRef: { select: { id: true, name: true } } },
+    });
+  }
+
+  /** Platform only: soft-delete user by id (no agency scope). For superadmin delete. */
+  async softDeleteForPlatform(userId: string) {
+    return this.prisma.user.updateMany({
+      where: { id: userId },
+      data: { deletedAt: new Date(), status: "DISABLED" as UserStatus },
+    });
+  }
+
+  /** Platform only: restore soft-deleted user by id (no agency scope). For superadmin restore. */
+  async restoreUserForPlatform(userId: string) {
+    return this.prisma.user.updateMany({
+      where: { id: userId },
+      data: { deletedAt: null, status: "ACTIVE" as UserStatus },
+    });
+  }
+
+  /** Platform only: update user by id (status, roleId, passwordHash, emailVerifiedAt, forcePasswordChange). */
   updateByUserIdPlatform(
     userId: string,
-    data: { status?: UserStatus; roleId?: string; passwordHash?: string }
+    data: {
+      status?: UserStatus;
+      roleId?: string;
+      passwordHash?: string;
+      emailVerifiedAt?: Date | null;
+      forcePasswordChange?: boolean;
+    }
   ) {
     return this.prisma.user.update({
       where: { id: userId },
@@ -177,6 +277,8 @@ export class UserRepository extends BaseRepository {
         ...(data.status !== undefined && { status: data.status }),
         ...(data.roleId !== undefined && { roleId: data.roleId }),
         ...(data.passwordHash !== undefined && { passwordHash: data.passwordHash }),
+        ...(data.emailVerifiedAt !== undefined && { emailVerifiedAt: data.emailVerifiedAt }),
+        ...(data.forcePasswordChange !== undefined && { forcePasswordChange: data.forcePasswordChange }),
       },
     });
   }

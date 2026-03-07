@@ -32,6 +32,7 @@ export default function LoginCallbackPage() {
 
     const rawHash = window.location.hash;
     const params = parseHashParams(rawHash);
+    const fromAgency = new URLSearchParams(window.location.search).get("from_agency")?.trim();
 
     const accessToken = params.access_token?.trim();
     const refreshToken = params.refresh_token?.trim();
@@ -47,6 +48,14 @@ export default function LoginCallbackPage() {
     }
 
     if (hasError) {
+      if (fromAgency) {
+        const q = new URLSearchParams({
+          error: "sso_failed",
+          error_description: errorDescription || error || "SSO sign-in failed",
+        });
+        router.replace(`/agency/${encodeURIComponent(fromAgency)}/login?${q.toString()}`);
+        return;
+      }
       setErrorMessage(errorDescription || error || "SSO sign-in failed");
       setStatus("error");
       window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
@@ -67,6 +76,10 @@ export default function LoginCallbackPage() {
           me.permissionVersion
         );
         setStatus("success");
+        if (me.user.forcePasswordChange) {
+          router.replace(ROUTES.CHANGE_PASSWORD);
+          return;
+        }
         if (me.user.isSuperAdmin) {
           router.replace(ROUTES.SUPERADMIN);
         } else if (me.user.agencyId && me.user.agency?.onboardingCompleted) {

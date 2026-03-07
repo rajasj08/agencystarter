@@ -343,9 +343,10 @@ export class RolesService {
       return role.id;
     };
 
-    await link("AGENCY_ADMIN", AGENCY_ADMIN_PERMISSION_KEYS);
-    await link("AGENCY_MEMBER", AGENCY_MEMBER_PERMISSION_KEYS);
-    await link("USER", USER_PERMISSION_KEYS);
+    const roleAgencyAdminId = await link("AGENCY_ADMIN", AGENCY_ADMIN_PERMISSION_KEYS);
+    invalidateRole(roleAgencyAdminId);
+    invalidateRole(await link("AGENCY_MEMBER", AGENCY_MEMBER_PERMISSION_KEYS));
+    invalidateRole(await link("USER", USER_PERMISSION_KEYS));
     const roleAgencyAdmin = await roleRepo.findRoleByNameAndAgency(agencyId, ROLES.AGENCY_ADMIN);
     if (!roleAgencyAdmin) throw new AppError(ERROR_CODES.INTERNAL_ERROR, "Failed to create agency roles", 500);
     return { roleAgencyAdminId: roleAgencyAdmin.id };

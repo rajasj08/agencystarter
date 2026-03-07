@@ -189,6 +189,10 @@ export class AuthService extends BaseService {
     if (existing) {
       throw new AppError(ERROR_CODES.USER_ALREADY_EXISTS, "User with this email already exists", 409);
     }
+    const deletedUser = await authRepo.findByEmailIncludingDeleted(input.email);
+    if (deletedUser?.deletedAt != null) {
+      throw new AppError(ERROR_CODES.AUTH_USER_DISABLED, "Your account is deleted. Contact your administrator.", 403);
+    }
     const systemUserRole = await roleRepo.findSystemRoleByName(ROLES.USER);
     if (!systemUserRole) {
       throw new AppError(ERROR_CODES.INTERNAL_ERROR, "System role USER not found. Run seed.", 500);
@@ -325,7 +329,7 @@ export class AuthService extends BaseService {
         data: { passwordHash },
       });
       await tx.user.updateMany({
-        where: { id: reset.userId, status: "INVITED" },
+        where: { id: reset.userId, status: { in: ["INVITED", "PENDING_VERIFICATION"] } },
         data: { emailVerifiedAt: new Date(), status: "ACTIVE" as UserStatus },
       });
       await tx.passwordReset.deleteMany({ where: { userId: reset.userId } });
@@ -412,8 +416,9 @@ export class AuthService extends BaseService {
       throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Current password is incorrect", 400);
     }
     const passwordHash = await bcrypt.hash(input.newPassword, 12);
-    await authRepo.updatePassword(userId, passwordHash);
-    return { message: "Password has been changed" };
+    await authRepo.updatePassword(userId, passwordHash, { forcePasswordChange: false });
+    const updated = await authRepo.findById(userId);
+    return { message: "Password has been changed", user: updated ? this.sanitizeUser(updated) : null };
   }
 
   async logoutAllDevices(userId: string) {
@@ -536,6 +541,7 @@ export class AuthService extends BaseService {
     roleRef?: { id: string; name: string } | null;
     status: string;
     agencyId: string | null;
+    forcePasswordChange?: boolean;
     emailVerifiedAt?: Date | null;
     lastLoginAt?: Date | null;
     createdAt: Date;
@@ -557,6 +563,7 @@ export class AuthService extends BaseService {
       role,
       status: user.status,
       agencyId: user.agencyId,
+      forcePasswordChange: user.forcePasswordChange ?? false,
       emailVerifiedAt: user.emailVerifiedAt ?? null,
       lastLoginAt: user.lastLoginAt ?? null,
       createdAt: user.createdAt,

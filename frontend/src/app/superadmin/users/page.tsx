@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { AppCard, AppButton } from "@/components/design";
+import { AppCard } from "@/components/design";
 import {
   Table,
   TableBody,
@@ -20,7 +20,9 @@ import {
   resetUserPassword,
   type PlatformUserListItem,
 } from "@/services/superadmin";
-import { AgencyFilter } from "@/components/superadmin/AgencyFilter";
+import { UserListFilters } from "@/components/UserListFilters";
+import { UserStatusBadge } from "@/modules/users";
+import { AppButton } from "@/components/design";
 import { ROUTES } from "@/constants/routes";
 import { toast } from "@/lib/toast";
 import { Pencil, UserPlus, ChevronUp, ChevronDown } from "lucide-react";
@@ -62,12 +64,20 @@ export default function SuperadminUsersPage() {
   const [page, setPage] = useState(1);
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
   const [sortBy, setSortBy] = useState<UserSortField | null>("createdAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [loading, setLoading] = useState(true);
 
   const loadUsers = useCallback(
-    (p = page, searchTerm = search, agencyFilter: string | null = agencyId, newSortBy?: UserSortField, newOrder?: SortOrder) => {
+    (
+      p = page,
+      searchTerm = search,
+      agencyFilter: string | null = agencyId,
+      statusFilter = status,
+      newSortBy?: UserSortField,
+      newOrder?: SortOrder
+    ) => {
       const sBy = newSortBy ?? sortBy ?? "createdAt";
       const sOrder = newOrder ?? sortOrder;
       if (newSortBy !== undefined) setSortBy(newSortBy);
@@ -78,6 +88,7 @@ export default function SuperadminUsersPage() {
         limit: 20,
         agencyId: agencyFilter ?? undefined,
         search: searchTerm || undefined,
+        status: statusFilter || undefined,
         sortBy: sBy,
         order: sOrder,
       })
@@ -88,32 +99,46 @@ export default function SuperadminUsersPage() {
         .catch(() => toast.error("Failed to load users"))
         .finally(() => setLoading(false));
     },
-    [page, search, agencyId, sortBy, sortOrder]
+    [page, search, agencyId, status, sortBy, sortOrder]
   );
 
   const handleSort = useCallback(
     (newSortBy: UserSortField, newOrder: SortOrder) => {
       setSortBy(newSortBy);
       setSortOrder(newOrder);
-      loadUsers(page, search, agencyId, newSortBy, newOrder);
+      loadUsers(page, search, agencyId, status, newSortBy, newOrder);
     },
-    [loadUsers, page, search, agencyId]
+    [loadUsers, page, search, agencyId, status]
   );
 
   useEffect(() => {
-    loadUsers(page, search, agencyId);
+    loadUsers(page, search, agencyId, status);
   }, [page]);
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
     setPage(1);
-    loadUsers(1, search, agencyId);
+    loadUsers(1, search, agencyId, status);
   }
 
   function handleAgencyFilterChange(newAgencyId: string | null) {
     setAgencyId(newAgencyId);
     setPage(1);
-    loadUsers(1, search, newAgencyId);
+    loadUsers(1, search, newAgencyId, status);
+  }
+
+  function handleStatusChange(value: string) {
+    setStatus(value);
+    setPage(1);
+    loadUsers(1, search, agencyId, value);
+  }
+
+  function handleResetFilters() {
+    setAgencyId(null);
+    setSearch("");
+    setStatus("");
+    setPage(1);
+    loadUsers(1, "", null, "");
   }
 
   async function handleDisable(userId: string) {
@@ -157,27 +182,25 @@ export default function SuperadminUsersPage() {
   return (
     <PageContainer title="Platform Users">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <AgencyFilter value={agencyId} onChange={handleAgencyFilterChange} placeholder="All agencies" />
-          <form onSubmit={handleSearchSubmit} className="flex gap-2">
-          <input
-            type="search"
-            placeholder="Search by email or name..."
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <AppButton type="submit" variant="outline">
-            Search
-          </AppButton>
-        </form>
+        <UserListFilters
+          showAgencyFilter
+          agencyId={agencyId}
+          onAgencyChange={handleAgencyFilterChange}
+          search={search}
+          onSearchChange={setSearch}
+          onSearchSubmit={handleSearchSubmit}
+          status={status}
+          onStatusChange={handleStatusChange}
+          onReset={handleResetFilters}
+          searchPlaceholder="Search by email or name…"
+        >
           <AppButton asChild>
             <Link href={ROUTES.SUPERADMIN_USERS_CREATE}>
               <UserPlus className="mr-2 h-4 w-4" aria-hidden />
               Add user
             </Link>
           </AppButton>
-        </div>
+        </UserListFilters>
         <AppCard className="rounded-xl">
           {loading ? (
             <p className="text-text-secondary">Loading…</p>
@@ -234,17 +257,9 @@ export default function SuperadminUsersPage() {
                         <TableCell className="text-text-secondary">{user.name ?? "—"}</TableCell>
                         <TableCell>{user.role}</TableCell>
                         <TableCell>
-                          <span
-                            className={
-                              user.status === "ACTIVE"
-                                ? "text-green-600"
-                                : user.status === "DISABLED"
-                                  ? "text-red-600"
-                                  : "text-amber-600"
-                            }
-                          >
-                            {user.status}
-                          </span>
+                          <UserStatusBadge
+                            status={user.deletedAt != null ? "DELETED" : user.status}
+                          />
                         </TableCell>
                         <TableCell className="text-text-secondary">
                           {new Date(user.createdAt).toLocaleDateString()}

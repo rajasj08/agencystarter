@@ -21,6 +21,8 @@ export interface PaginationOptions {
   offset: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  search?: string;
+  status?: string;
 }
 
 /** Result shape for paginated list (data + total). */

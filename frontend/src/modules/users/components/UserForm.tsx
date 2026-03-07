@@ -7,14 +7,14 @@ import { z } from "zod";
 import { FormProviderWrapper } from "@/components/forms";
 import { FormInput, FormSelect, FormCheckbox, FormPassword } from "@/components/forms";
 import { AppButton } from "@/components/design";
-import { ROLES } from "@/constants/permissions";
+import { RoleSelect } from "@/modules/roles";
 import type { User, UserCreateInput, UserUpdateInput } from "../types/userTypes";
 
 const createSchema = z
   .object({
     email: z.string().min(1, "Email is required").email("Invalid email"),
     name: z.string().optional(),
-    role: z.string().min(1, "Role is required"),
+    roleId: z.string().min(1, "Role is required"),
     invite: z.boolean().optional(),
     password: z.string().optional(),
   })
@@ -28,14 +28,13 @@ const createSchema = z
 
 const updateSchema = z.object({
   name: z.string().optional(),
-  role: z.string().min(1, "Role is required"),
+  roleId: z.string().min(1, "Role is required"),
   status: z.enum(["ACTIVE", "DISABLED", "SUSPENDED"]).optional(),
 });
 
 export type UserCreateFormValues = z.infer<typeof createSchema>;
 export type UserUpdateFormValues = z.infer<typeof updateSchema>;
 
-const roleOptions = Object.values(ROLES).map((r) => ({ value: r, label: r.replace(/_/g, " ") }));
 const statusOptions = [
   { value: "ACTIVE", label: "Active" },
   { value: "DISABLED", label: "Disabled" },
@@ -57,7 +56,7 @@ export function UserForm({ mode, initialData, onSubmit, loading = false }: UserF
     defaultValues: {
       email: "",
       name: "",
-      role: ROLES.AGENCY_MEMBER,
+      roleId: "",
       invite: false,
       password: "",
     },
@@ -67,8 +66,8 @@ export function UserForm({ mode, initialData, onSubmit, loading = false }: UserF
     resolver: zodResolver(updateSchema),
     defaultValues: {
       name: initialData?.name ?? "",
-      role: initialData?.role ?? ROLES.AGENCY_MEMBER,
-      status: initialData?.status === "INVITED" ? "ACTIVE" : (initialData?.status ?? "ACTIVE"),
+      roleId: initialData?.roleId ?? "",
+      status: (initialData?.status === "INVITED" || initialData?.status === "PENDING_VERIFICATION") ? "ACTIVE" : (initialData?.status ?? "ACTIVE"),
     },
   });
 
@@ -76,8 +75,8 @@ export function UserForm({ mode, initialData, onSubmit, loading = false }: UserF
     if (!isCreate && initialData) {
       updateForm.reset({
         name: initialData.name ?? "",
-        role: initialData.role,
-        status: initialData.status === "INVITED" ? "ACTIVE" : initialData.status,
+        roleId: initialData.roleId ?? "",
+        status: (initialData.status === "INVITED" || initialData.status === "PENDING_VERIFICATION") ? "ACTIVE" : initialData.status,
       });
     }
   }, [isCreate, initialData?.id]);
@@ -92,7 +91,7 @@ export function UserForm({ mode, initialData, onSubmit, loading = false }: UserF
       onSubmit({
         email: v.email,
         name: v.name || undefined,
-        role: v.role,
+        roleId: v.roleId,
         invite: v.invite,
         password: v.invite ? undefined : v.password,
       });
@@ -100,7 +99,7 @@ export function UserForm({ mode, initialData, onSubmit, loading = false }: UserF
       const v = data as UserUpdateFormValues;
       onSubmit({
         name: v.name || undefined,
-        role: v.role,
+        roleId: v.roleId,
         status: v.status,
       });
     }
@@ -116,7 +115,7 @@ export function UserForm({ mode, initialData, onSubmit, loading = false }: UserF
         <>
           <FormInput name="email" label="Email" type="email" required />
           <FormInput name="name" label="Name" />
-          <FormSelect name="role" label="Role" options={roleOptions} />
+          <RoleSelect name="roleId" label="Role" />
           <FormCheckbox name="invite" label="Send invitation email (user sets password)" />
           {!invite && (
             <FormPassword name="password" label="Password" helperText="Min 8 characters" />
@@ -126,7 +125,7 @@ export function UserForm({ mode, initialData, onSubmit, loading = false }: UserF
       {!isCreate && (
         <>
           <FormInput name="name" label="Name" />
-          <FormSelect name="role" label="Role" options={roleOptions} />
+          <RoleSelect name="roleId" label="Role" />
           <FormSelect name="status" label="Status" options={statusOptions} />
         </>
       )}

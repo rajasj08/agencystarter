@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Eye, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/design";
 import { UserStatusBadge } from "./UserStatusBadge";
 import { ROUTES } from "@/constants/routes";
@@ -9,8 +10,16 @@ import type { User } from "../types/userTypes";
 export interface UserTableActionsProps {
   /** Show Edit link only when user has user:update */
   canEdit?: boolean;
+  /** Show Delete button only when user has user:delete */
+  canDelete?: boolean;
+  /** Show Restore button for soft-deleted users (user:update or admin) */
+  canRestore?: boolean;
   /** When set, View opens this callback (e.g. modal) instead of navigating to detail page */
   onView?: (user: User) => void;
+  /** Called when user clicks delete (parent opens confirm modal and performs delete on confirm) */
+  onDelete?: (user: User) => void;
+  /** Called when user clicks restore (parent opens confirm modal and performs restore on confirm) */
+  onRestore?: (user: User) => void;
 }
 
 function formatDate(iso: string) {
@@ -37,7 +46,7 @@ export interface UserTableProps extends UserTableActionsProps {
   };
 }
 
-export function UserTable({ data, loading, pagination, sort, canEdit, onView }: UserTableProps) {
+export function UserTable({ data, loading, pagination, sort, canEdit, canDelete, canRestore, onView, onDelete, onRestore }: UserTableProps) {
   const columns: DataTableColumn<User>[] = [
     {
       key: "name",
@@ -61,7 +70,9 @@ export function UserTable({ data, loading, pagination, sort, canEdit, onView }: 
       key: "status",
       header: "Status",
       sortKey: "status",
-      render: (row) => <UserStatusBadge status={row.status} />,
+      render: (row) => (
+        <UserStatusBadge status={row.deletedAt != null ? "DELETED" : row.status} />
+      ),
     },
     {
       key: "createdAt",
@@ -72,34 +83,69 @@ export function UserTable({ data, loading, pagination, sort, canEdit, onView }: 
     {
       key: "actions",
       header: "Actions",
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          {onView ? (
-            <button
-              type="button"
-              onClick={() => onView(row)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              View
-            </button>
-          ) : (
-            <Link
-              href={ROUTES.USER_VIEW(row.id)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              View
-            </Link>
-          )}
-          {canEdit && (
-            <Link
-              href={ROUTES.USER_EDIT(row.id)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Edit
-            </Link>
-          )}
-        </div>
-      ),
+      render: (row) => {
+        const isDeleted = row.deletedAt != null;
+        if (isDeleted && canRestore && onRestore) {
+          return (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onRestore(row)}
+                title="Restore user"
+                className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-text-primary"
+                aria-label="Restore user"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+          );
+        }
+        return (
+          <div className="flex items-center gap-1">
+            {onView ? (
+              <button
+                type="button"
+                onClick={() => onView(row)}
+                title="View user"
+                className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-text-primary"
+                aria-label="View user"
+              >
+                <Eye className="h-4 w-4" aria-hidden />
+              </button>
+            ) : (
+              <Link
+                href={ROUTES.USER_VIEW(row.id)}
+                title="View user"
+                className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-text-primary inline-flex"
+                aria-label="View user"
+              >
+                <Eye className="h-4 w-4" aria-hidden />
+              </Link>
+            )}
+            {canEdit && (
+              <Link
+                href={ROUTES.USER_EDIT(row.id)}
+                title="Edit user"
+                className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-text-primary inline-flex"
+                aria-label="Edit user"
+              >
+                <Pencil className="h-4 w-4" aria-hidden />
+              </Link>
+            )}
+            {canDelete && onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(row)}
+                title="Delete user"
+                className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-danger"
+                aria-label="Delete user"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 

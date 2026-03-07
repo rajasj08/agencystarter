@@ -38,6 +38,10 @@ export function LoginForm() {
         result.permissions,
         result.permissionVersion
       );
+      if (result.user.forcePasswordChange) {
+        router.push(ROUTES.CHANGE_PASSWORD);
+        return;
+      }
       let dest: string;
       if (result.user.isSuperAdmin) {
         dest = ROUTES.SUPERADMIN;
