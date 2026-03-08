@@ -63,8 +63,19 @@ export class AgencyController extends BaseController {
     this.success(res, data, RESPONSE_CODES.UPDATED);
   };
 
-  list = async (_req: Request, res: Response): Promise<void> => {
-    const data = await agencyService.list();
+  list = async (req: AuthRequest, res: Response): Promise<void> => {
+    const scope = req.user?.scope;
+    const agencyId = req.user?.agencyId;
+    if (scope === "platform") {
+      const data = await agencyService.listAll();
+      this.success(res, data, RESPONSE_CODES.FETCHED);
+      return;
+    }
+    if (!agencyId) {
+      this.fail(res, "PERMISSION_DENIED", "Agency context required", 403);
+      return;
+    }
+    const data = await agencyService.listForTenant(agencyId);
     this.success(res, data, RESPONSE_CODES.FETCHED);
   };
 }

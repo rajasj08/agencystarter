@@ -18,6 +18,7 @@ import type { CreateUserInput, UpdateUserInput } from "./user.validation.js";
 import type { PaginationOptions } from "../../types/index.js";
 import { get as getSystemConfig } from "../../services/SystemConfigCache.js";
 import { checkUserLimit } from "../../core/plans/planLimiter.js";
+import { assertAgencyScoped } from "../../lib/tenant.js";
 
 const rolesService = new RolesService();
 
@@ -80,9 +81,15 @@ export class UserService {
   /** Get user by id. Returns deleted users (with deletedAt) so edit page can show read-only restore view; does not 404. */
   async getById(agencyId: string, id: string) {
     const user = await userRepo.findByIdAndAgency(id, agencyId);
-    if (user) return toUserPublicDTO(user);
+    if (user) {
+      assertAgencyScoped(user, agencyId);
+      return toUserPublicDTO(user);
+    }
     const deleted = await userRepo.findByIdAndAgencyIncludingDeleted(id, agencyId);
-    if (deleted) return toUserPublicDTO(deleted);
+    if (deleted) {
+      assertAgencyScoped(deleted, agencyId);
+      return toUserPublicDTO(deleted);
+    }
     throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
   }
 
@@ -185,6 +192,9 @@ export class UserService {
     if (options?.currentUserId && id === options.currentUserId && (input.status === "DISABLED" || input.status === "SUSPENDED")) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "You cannot disable or suspend your own account.", 403);
     }
+    if (options?.currentUserId && id === options.currentUserId && input.roleId !== undefined) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "You cannot change your own role.", 403);
+    }
     const existingRoleName = existing.roleRef?.name ?? existing.role;
     if (existingRoleName === ROLES.SUPER_ADMIN) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin user cannot be modified", 403);
@@ -248,6 +258,7 @@ export class UserService {
       });
     }
     const updated = await userRepo.findByIdAndAgency(id, agencyId);
+    assertAgencyScoped(updated!, agencyId);
     return toUserPublicDTO(updated!);
   }
 
@@ -268,6 +279,8 @@ export class UserService {
         403
       );
     }
+    // Revoke all sessions immediately so deleted user cannot refresh; access tokens stop working after expiry.
+    await authRepo.deleteSessionsByUserId(id);
     await userRepo.softDelete(id, agencyId, { updatedById: options?.currentUserId ?? null });
   }
 

@@ -359,6 +359,7 @@ export class AuthService extends BaseService {
       });
       await tx.passwordReset.deleteMany({ where: { userId: reset.userId } });
     });
+    await authRepo.deleteSessionsByUserId(reset.userId);
     return { message: "Password has been reset" };
   }
 
@@ -378,12 +379,14 @@ export class AuthService extends BaseService {
   }
 
   /**
-   * Verifies token and ensures permission snapshot version matches role (invalidates session when role permissions changed).
+   * Verifies token and ensures permission snapshot version matches role.
+   * Permission versioning: JWT carries permissionSnapshotVersion (role.permissionsVersion at login).
+   * If role.permissionsVersion has changed (e.g. admin updated role permissions), token is rejected → user must re-login.
    */
   async verifyAccessTokenWithPermissionCheck(token: string): Promise<JwtPayload> {
     const payload = this.verifyAccessToken(token);
     if (payload.roleId != null) {
-      const role = await roleRepo.findRoleById(payload.roleId);
+      const role = await roleRepo.findRoleByIdAndAgency(payload.roleId, payload.agencyId ?? null);
       const snapshotVersion = payload.permissionSnapshotVersion ?? 0;
       if (role && role.permissionsVersion !== snapshotVersion) {
         throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID, "Permissions updated. Please re-login.", 401);
@@ -442,6 +445,7 @@ export class AuthService extends BaseService {
     }
     const passwordHash = await bcrypt.hash(input.newPassword, 12);
     await authRepo.updatePassword(userId, passwordHash, { forcePasswordChange: false });
+    await authRepo.deleteSessionsByUserId(userId);
     const updated = await authRepo.findById(userId);
     return { message: "Password has been changed", user: updated ? this.sanitizeUser(updated) : null };
   }
@@ -502,13 +506,13 @@ export class AuthService extends BaseService {
     }));
   }
 
-  /** Revoke a session by id. Allowed: own session, tenant admin for session in same agency, superadmin. Returns details for audit. */
+  /** Revoke a session by id. Allowed: own session, tenant admin for session in same agency, superadmin. Uses scoped fetch and scoped delete so authorization is enforced in DB. */
   async revokeSessionById(
     sessionId: string,
     caller: { userId: string; agencyId: string | null; isSuperAdmin?: boolean },
     hasTenantAdminPermission: boolean
   ): Promise<{ sessionId: string; targetUserId: string }> {
-    const session = await authRepo.findSessionById(sessionId);
+    const session = await authRepo.findSessionByIdForRevoke(sessionId, caller);
     if (!session) {
       throw new AppError(ERROR_CODES.SESSION_NOT_FOUND, "Session not found", 404);
     }
@@ -521,7 +525,10 @@ export class AuthService extends BaseService {
     if (!canRevoke) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot revoke this session", 403);
     }
-    await authRepo.deleteSessionById(sessionId);
+    const { count } = await authRepo.deleteSessionByIdScoped(sessionId, caller);
+    if (count === 0) {
+      throw new AppError(ERROR_CODES.SESSION_NOT_FOUND, "Session not found", 404);
+    }
     return { sessionId, targetUserId: session.userId };
   }
 

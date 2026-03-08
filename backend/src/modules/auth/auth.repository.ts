@@ -213,11 +213,53 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
-  /** Find session by id with user (for ownership/agency check). */
+  /** Find session by id with user (for ownership/agency check). Prefer findSessionByIdForRevoke for revoke flow (scoped). */
   findSessionById(id: string) {
     return this.prisma.session.findUnique({
       where: { id },
       include: { user: { select: { id: true, agencyId: true } } },
+    });
+  }
+
+  /**
+   * Find session by id only if caller is authorized (own session, same agency, or superadmin).
+   * Authorization is enforced in the query so we never load another tenant's session.
+   */
+  findSessionByIdForRevoke(
+    id: string,
+    caller: { userId: string; agencyId: string | null; isSuperAdmin?: boolean }
+  ) {
+    if (caller.isSuperAdmin === true) {
+      return this.prisma.session.findUnique({
+        where: { id },
+        include: { user: { select: { id: true, agencyId: true } } },
+      });
+    }
+    return this.prisma.session.findFirst({
+      where: {
+        id,
+        OR: [{ userId: caller.userId }, { user: { agencyId: caller.agencyId } }],
+      },
+      include: { user: { select: { id: true, agencyId: true } } },
+    });
+  }
+
+  /**
+   * Delete session by id only if caller is authorized (authorization in DB query).
+   * Returns count of deleted rows (0 or 1). Use after findSessionByIdForRevoke for audit targetUserId.
+   */
+  deleteSessionByIdScoped(
+    id: string,
+    caller: { userId: string; agencyId: string | null; isSuperAdmin?: boolean }
+  ): Promise<{ count: number }> {
+    if (caller.isSuperAdmin === true) {
+      return this.prisma.session.deleteMany({ where: { id } });
+    }
+    return this.prisma.session.deleteMany({
+      where: {
+        id,
+        OR: [{ userId: caller.userId }, { user: { agencyId: caller.agencyId } }],
+      },
     });
   }
 
@@ -249,9 +291,10 @@ export class AuthRepository extends BaseRepository {
     return this.prisma.session.create({ data });
   }
 
+  /** Find session by refresh token; excludes sessions for soft-deleted users so refresh fails for deleted accounts. */
   findSessionByRefreshTokenHash(hash: string) {
     return this.prisma.session.findFirst({
-      where: { refreshTokenHash: hash },
+      where: { refreshTokenHash: hash, user: { deletedAt: null } },
       include: { user: { include: { agency: true, roleRef: { select: { id: true, name: true, permissionsVersion: true } } } } },
     });
   }
@@ -270,9 +313,10 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
+  /** Find email verification by token; excludes soft-deleted users so verification links do not apply to deleted accounts. */
   findEmailVerificationByToken(token: string) {
-    return this.prisma.emailVerification.findUnique({
-      where: { token },
+    return this.prisma.emailVerification.findFirst({
+      where: { token, user: { deletedAt: null } },
       include: { user: { include: { agency: true } } },
     });
   }
@@ -287,9 +331,10 @@ export class AuthRepository extends BaseRepository {
     });
   }
 
+  /** Find password reset by token; excludes soft-deleted users so reset links do not apply to deleted accounts. */
   findPasswordResetByToken(token: string) {
-    return this.prisma.passwordReset.findUnique({
-      where: { token },
+    return this.prisma.passwordReset.findFirst({
+      where: { token, user: { deletedAt: null } },
       include: { user: true },
     });
   }

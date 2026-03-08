@@ -131,14 +131,14 @@ export class UserRepository extends BaseRepository {
       ...(emailVerifiedAt !== undefined && { emailVerifiedAt }),
     };
     return client.user.updateMany({
-      where: { id, ...tenantScopeStrict(agencyId) },
+      where: { id, ...this.activeOnly(), ...tenantScopeStrict(agencyId) },
       data: updateData,
     });
   }
 
   async updatePassword(id: string, agencyId: string, passwordHash: string) {
     return this.prisma.user.updateMany({
-      where: { id, ...tenantScopeStrict(agencyId) },
+      where: { id, ...this.activeOnly(), ...tenantScopeStrict(agencyId) },
       data: { passwordHash },
     });
   }
@@ -146,7 +146,7 @@ export class UserRepository extends BaseRepository {
   async softDelete(id: string, agencyId: string, options?: { tx?: PrismaClientLike; updatedById?: string | null }) {
     const client = (options?.tx ?? this.prisma) as PrismaClient;
     return client.user.updateMany({
-      where: { id, ...tenantScopeStrict(agencyId) },
+      where: { id, ...this.activeOnly(), ...tenantScopeStrict(agencyId) },
       data: {
         deletedAt: new Date(),
         status: "DISABLED" as UserStatus,
@@ -179,9 +179,9 @@ export class UserRepository extends BaseRepository {
     });
   }
 
-  /** Count users assigned to this role (for delete guard). Role is already agency-scoped. */
+  /** Count active (non-deleted) users assigned to this role (for delete guard). Role is already agency-scoped. */
   async countByRoleId(roleId: string): Promise<number> {
-    return this.prisma.user.count({ where: { roleId } });
+    return this.prisma.user.count({ where: { roleId, ...this.activeOnly() } });
   }
 
   /** Count active (non-deleted) users in agency. For plan limits and config limits. */
@@ -206,6 +206,13 @@ export class UserRepository extends BaseRepository {
   /** Platform only: count all active users (deletedAt: null). For metrics. */
   countAllActive(): Promise<number> {
     return this.prisma.user.count({ where: { deletedAt: null } });
+  }
+
+  /** Platform only: count active users with role SUPER_ADMIN. For last-superadmin protection. */
+  countSuperAdmins(): Promise<number> {
+    return this.prisma.user.count({
+      where: { deletedAt: null, roleRef: { name: "SUPER_ADMIN" } },
+    });
   }
 
   /** Platform only: list all users (no agencyId filter). Explicitly unscoped for superadmin. */
@@ -283,18 +290,18 @@ export class UserRepository extends BaseRepository {
     });
   }
 
-  /** Display info for "updated by" etc. Platform/global lookup by user id (no tenant scope). */
+  /** Display info for "updated by" etc. Platform/global lookup by user id (no tenant scope). Excludes soft-deleted users. */
   findUserDisplayById(id: string) {
-    return this.prisma.user.findUnique({
-      where: { id },
+    return this.prisma.user.findFirst({
+      where: { id, ...this.activeOnly() },
       select: { id: true, email: true, displayName: true, firstName: true, lastName: true },
     });
   }
 
-  /** Onboarding: set current user's agency and role (user may not have agencyId yet). Call only when creating/joining an agency. */
+  /** Onboarding: set current user's agency and role (user may not have agencyId yet). Call only when creating/joining an agency. Excludes soft-deleted users. */
   async updateAgencyAndRoleForOnboarding(userId: string, agencyId: string, roleId: string) {
-    return this.prisma.user.update({
-      where: { id: userId },
+    return this.prisma.user.updateMany({
+      where: { id: userId, ...this.activeOnly() },
       data: { agencyId, roleId },
     });
   }

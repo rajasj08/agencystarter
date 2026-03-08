@@ -137,14 +137,15 @@ export async function getVariables(req: Request, res: Response): Promise<void> {
   res.json({ success: true, data: { variables } });
 }
 
-/** Preview rendered template (shared). */
-export async function preview(req: Request, res: Response): Promise<void> {
+/** Preview rendered template (shared). Tenant route: use req.user.agencyId; superadmin may pass body.agencyId. */
+export async function preview(req: AuthRequest, res: Response): Promise<void> {
   const parsed = previewBodySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ success: false, code: "VALIDATION_ERROR", message: parsed.error.message });
     return;
   }
-  const data = await service.preview(parsed.data);
+  const agencyId = req.user?.agencyId ?? parsed.data.agencyId ?? undefined;
+  const data = await service.preview({ ...parsed.data, agencyId: agencyId ?? null });
   res.json({ success: true, data });
 }
 

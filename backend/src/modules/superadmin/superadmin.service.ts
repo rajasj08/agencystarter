@@ -699,6 +699,10 @@ export class SuperadminService {
     const user = await userRepository.findByIdForPlatform(userId);
     if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
+      const count = await userRepository.countSuperAdmins();
+      if (count <= 1) {
+        throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot modify the last superadmin", 403);
+      }
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot be disabled", 403);
     }
     await userRepository.updateByUserIdPlatform(userId, { status: "DISABLED" });
@@ -814,8 +818,14 @@ export class SuperadminService {
     const user = await userRepository.findByIdForPlatformIncludingDeleted(userId);
     if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
+      const count = await userRepository.countSuperAdmins();
+      if (count <= 1) {
+        throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot modify the last superadmin", 403);
+      }
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot be deleted", 403);
     }
+    // Revoke all sessions immediately so deleted user cannot refresh; access tokens stop working after expiry.
+    await authRepository.deleteSessionsByUserId(userId);
     await userRepository.softDeleteForPlatform(userId);
     await audit(req, {
       action: "SUPERADMIN_ACTION",
@@ -859,6 +869,10 @@ export class SuperadminService {
     const user = await userRepository.findByIdForPlatform(userId);
     if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
+      const count = await userRepository.countSuperAdmins();
+      if (count <= 1) {
+        throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot modify the last superadmin", 403);
+      }
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin status cannot be changed", 403);
     }
     await userRepository.updateByUserIdPlatform(userId, {

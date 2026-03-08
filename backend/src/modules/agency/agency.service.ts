@@ -77,8 +77,15 @@ export class AgencyService extends BaseService {
     return agency;
   }
 
-  async list() {
+  /** Platform (superadmin) only: list all agencies. */
+  async listAll() {
     return agencyRepo.list();
+  }
+
+  /** Tenant: list only the caller's agency (single-item array). */
+  async listForTenant(agencyId: string) {
+    const agency = await agencyRepo.findById(agencyId);
+    return agency ? [agency] : [];
   }
 
   /** Tenant-level update: only allowed fields (name, logo, contact, etc.). */
