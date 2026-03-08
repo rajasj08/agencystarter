@@ -4,6 +4,7 @@ import { authMiddleware } from "../../middleware/auth.js";
 import { requireRouteScope } from "../../middleware/routeScope.js";
 import { SuperadminController } from "./superadmin.controller.js";
 import { plansRoutes } from "../plans/plans.routes.js";
+import { superadminEmailTemplateRoutes } from "../email-template/email-template.routes.js";
 
 const router = Router();
 const controller = new SuperadminController();
@@ -12,6 +13,7 @@ router.use(authMiddleware);
 router.use(requireRouteScope("PLATFORM"));
 
 router.use("/plans", plansRoutes);
+router.use("/email-templates", superadminEmailTemplateRoutes);
 
 router.get("/system-settings", asyncHandler(controller.getSystemSettings.bind(controller)));
 router.patch("/system-settings", asyncHandler(controller.updateSystemSettings.bind(controller)));

@@ -8,6 +8,7 @@ import {
   refreshSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  validateResetTokenSchema,
   verifyEmailSchema,
   changePasswordSchema,
   updateProfileSchema,
@@ -98,6 +99,16 @@ export class AuthController extends BaseController {
     }
     await authService.forgotPassword(parsed.data);
     this.success(res, { message: "If an account exists, you will receive a password reset link" }, RESPONSE_CODES.PASSWORD_RESET_SENT);
+  };
+
+  validateResetToken = async (req: Request, res: Response): Promise<void> => {
+    const parsed = validateResetTokenSchema.safeParse(this.getBody(req));
+    if (!parsed.success) {
+      this.fail(res, "VALIDATION_ERROR", "Validation failed", 400, parsed.error.flatten().fieldErrors as Record<string, unknown>);
+      return;
+    }
+    const result = await authService.validateResetToken(parsed.data.token);
+    this.success(res, result, RESPONSE_CODES.SUCCESS);
   };
 
   resetPassword = async (req: Request, res: Response): Promise<void> => {

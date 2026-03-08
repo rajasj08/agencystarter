@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Building2, Users, Settings, FileText, BadgeDollarSign } from "lucide-react";
+import { LayoutDashboard, Building2, Users, Settings, FileText, BadgeDollarSign, Mail } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 
 const navItems = [
@@ -19,6 +19,7 @@ const navItems = [
   { title: "Agencies", href: ROUTES.SUPERADMIN_AGENCIES, icon: Building2 },
   { title: "Users", href: ROUTES.SUPERADMIN_USERS, icon: Users },
   { title: "Plans", href: ROUTES.SUPERADMIN_PLANS, icon: BadgeDollarSign },
+  { title: "Email Templates", href: ROUTES.SUPERADMIN_EMAIL_TEMPLATES, icon: Mail },
   { title: "System Settings", href: ROUTES.SUPERADMIN_SYSTEM_SETTINGS, icon: Settings },
   { title: "Audit Logs", href: ROUTES.SUPERADMIN_AUDIT, icon: FileText },
 ];

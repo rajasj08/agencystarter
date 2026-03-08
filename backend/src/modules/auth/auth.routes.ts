@@ -17,6 +17,7 @@ router.post("/refresh", asyncHandler(controller.refresh.bind(controller)));
 router.post("/logout", asyncHandler(controller.logout.bind(controller)));
 router.post("/verify-email", asyncHandler(controller.verifyEmail.bind(controller)));
 router.post("/forgot-password", asyncHandler(controller.forgotPassword.bind(controller)));
+router.post("/validate-reset-token", asyncHandler(controller.validateResetToken.bind(controller)));
 router.post("/reset-password", asyncHandler(controller.resetPassword.bind(controller)));
 router.get("/me", authMiddleware, asyncHandler(controller.me.bind(controller)));
 router.patch("/me", authMiddleware, asyncHandler(controller.updateProfile.bind(controller)));

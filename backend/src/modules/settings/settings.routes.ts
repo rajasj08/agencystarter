@@ -6,6 +6,7 @@ import { tenantIpGuard } from "../../middleware/tenantIpGuard.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { PERMISSIONS } from "../../constants/permissions.js";
 import { SettingsController } from "./settings.controller.js";
+import { agencyEmailTemplateRoutes } from "../email-template/email-template.routes.js";
 
 const router = Router();
 const controller = new SettingsController();
@@ -18,5 +19,7 @@ router.use(asyncHandler(tenantIpGuard));
 router.get("/", requirePermission(PERMISSIONS.SETTINGS_READ, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.get.bind(controller)));
 router.patch("/", requirePermission(PERMISSIONS.SETTINGS_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.update.bind(controller)));
 router.post("/test-email", requirePermission(PERMISSIONS.SETTINGS_UPDATE, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.sendTestEmail.bind(controller)));
+
+router.use("/email-templates", agencyEmailTemplateRoutes);
 
 export const settingsRoutes = router;

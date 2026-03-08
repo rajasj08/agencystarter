@@ -1,21 +1,25 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormProviderWrapper } from "@/components/forms";
-import { AppButton, ToggleSwitch } from "@/components/design";
+import { AppButton } from "@/components/design";
 import { RoleSelect } from "@/modules/roles";
 import type { AgencySettings } from "../types/settingsTypes";
 import type { Role } from "@/modules/roles/types/roleTypes";
 
 const schema = z.object({
-  allowSelfRegistration: z.boolean(),
-  defaultUserRoleId: z.string().min(1).max(100).optional().nullable().or(z.literal("")).transform((v) => (v === "" ? null : v)),
-  requireAdminApproval: z.boolean(),
-  allowUserInvitations: z.boolean(),
+  defaultUserRoleId: z
+    .string()
+    .min(1)
+    .max(100)
+    .optional()
+    .nullable()
+    .or(z.literal(""))
+    .transform((v) => (v === "" || v == null ? null : v)),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -53,12 +57,9 @@ export function UserManagementSettingsForm({ initialData, roles = [], onSubmit, 
   );
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
-      allowSelfRegistration: initialData?.allowSelfRegistration ?? true,
       defaultUserRoleId: initialDefaultRoleId || null,
-      requireAdminApproval: initialData?.requireAdminApproval ?? false,
-      allowUserInvitations: initialData?.allowUserInvitations ?? true,
     },
   });
 
@@ -70,10 +71,7 @@ export function UserManagementSettingsForm({ initialData, roles = [], onSubmit, 
         roles
       );
       form.reset({
-        allowSelfRegistration: initialData?.allowSelfRegistration ?? true,
         defaultUserRoleId: defaultRoleId || null,
-        requireAdminApproval: initialData?.requireAdminApproval ?? false,
-        allowUserInvitations: initialData?.allowUserInvitations ?? true,
       });
     }
   }, [initialData, roles]);
@@ -86,33 +84,12 @@ export function UserManagementSettingsForm({ initialData, roles = [], onSubmit, 
             <CardTitle className="text-base font-medium">User Management Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
-          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
-            <div>
-              <span className="text-sm font-medium text-text-primary">Allow self registration</span>
-              <p className="text-xs text-text-secondary">Let users sign up without an invitation.</p>
-            </div>
-            <ToggleSwitch id="allowSelfRegistration" {...form.register("allowSelfRegistration")} />
-          </div>
           <RoleSelect
             name="defaultUserRoleId"
             label="Default user role"
             options={roleOptions.length > 0 ? roleOptions : undefined}
-            helperText="Role assigned to new users (e.g. self-registered or invited)."
+            helperText="Role assigned to new users (e.g. SSO-provisioned or invited)."
           />
-          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
-            <div>
-              <span className="text-sm font-medium text-text-primary">Require admin approval</span>
-              <p className="text-xs text-text-secondary">New users must be approved by an admin before they can sign in.</p>
-            </div>
-            <ToggleSwitch id="requireAdminApproval" {...form.register("requireAdminApproval")} />
-          </div>
-          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
-            <div>
-              <span className="text-sm font-medium text-text-primary">Allow user invitations</span>
-              <p className="text-xs text-text-secondary">Admins can invite users by email.</p>
-            </div>
-            <ToggleSwitch id="allowUserInvitations" {...form.register("allowUserInvitations")} />
-          </div>
           </CardContent>
         </Card>
         <AppButton type="submit" loading={loading} disabled={loading}>

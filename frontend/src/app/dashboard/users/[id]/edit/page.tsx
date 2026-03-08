@@ -88,16 +88,16 @@ export default function UserEditPage() {
           user={toFormUser(user)}
           actions={{
             updateUser: handleUpdate,
-            activateUser: (uid) => activateUser(uid),
-            suspendUser: (uid) => suspendUser(uid),
-            disableUser: (uid) => disableUser(uid),
-            restoreUser: (uid) => restoreUser(uid),
-            deleteUser: (uid) => deleteUserMutation(uid),
-            resendInvite: (uid) => resendInvite(uid),
-            sendPasswordReset: (uid) => sendPasswordReset(uid),
-            setPassword: (uid, password) => setPassword(uid, password),
+            activateUser: (uid) => activateUser(uid).then(() => undefined),
+            suspendUser: (uid) => suspendUser(uid).then(() => undefined),
+            disableUser: (uid) => disableUser(uid).then(() => undefined),
+            restoreUser: (uid) => restoreUser(uid).then(() => undefined),
+            deleteUser: (uid) => deleteUserMutation(uid).then(() => undefined),
+            resendInvite: (uid) => resendInvite(uid).then(() => undefined),
+            sendPasswordReset: (uid) => sendPasswordReset(uid).then(() => undefined),
+            setPassword: (uid, password) => setPassword(uid, password).then(() => undefined),
           }}
-          refetchUser={() => fetchUser(id)}
+          refetchUser={() => fetchUser(id).then(() => undefined)}
           loading={saving}
           backHref={ROUTES.USERS}
           backLabel="Back to Users"

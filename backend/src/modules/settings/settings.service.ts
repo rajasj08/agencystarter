@@ -6,20 +6,16 @@ import { AppError } from "../../errors/AppError.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
 import type { UpdateSettingsInput } from "./settings.validation.js";
 import { validateCidr } from "../../utils/cidr.js";
-import nodemailer from "nodemailer";
+import { env } from "../../config/env.js";
+import { dispatchEmail } from "../email/index.js";
+import { getAgencyEmailConfig } from "../email/services/sender-resolver.js";
 
 const DEFAULTS: Record<string, unknown> = {
   timezone: "UTC",
   defaultLanguage: "en",
   dateFormat: "YYYY-MM-DD",
   currency: "USD",
-  allowSelfRegistration: true,
   defaultUserRole: "user",
-  requireAdminApproval: false,
-  allowUserInvitations: true,
-  enableEmails: true,
-  enableVerificationEmails: true,
-  enableResetEmails: true,
   theme: "system",
 };
 
@@ -97,37 +93,23 @@ export class SettingsService extends BaseService {
   }
 
   async sendTestEmail(agencyId: string, to: string): Promise<{ sent: boolean; message: string }> {
-    const data = (await this.get(agencyId)) as Record<string, unknown>;
-    const host = data.smtpHost as string | undefined;
-    const port = Number(data.smtpPort) || 587;
-    const user = data.smtpUsername as string | undefined;
-    const pass = data.smtpPassword as string | undefined;
-    const senderName = (data.senderName as string) || "Agency";
-    const senderEmail = (data.senderEmail as string) || "noreply@example.com";
-
-    if (!host?.trim()) {
-      return { sent: false, message: "SMTP host is not configured." };
+    const agencyConfig = await getAgencyEmailConfig(agencyId);
+    if (!agencyConfig) {
+      return {
+        sent: false,
+        message: "Please complete the SMTP email configuration.",
+      };
     }
-
-    const transport = nodemailer.createTransport({
-      host: host.trim(),
-      port,
-      secure: port === 465,
-      auth: user && pass ? { user: user.trim(), pass } : undefined,
-    });
-
     try {
-      await transport.sendMail({
-        from: `"${senderName}" <${senderEmail}>`,
+      await dispatchEmail({
+        template: "test",
         to,
-        subject: "Test email from Agency Settings",
-        text: "This is a test email. If you received this, your SMTP configuration is working.",
-        html: "<p>This is a test email. If you received this, your SMTP configuration is working.</p>",
+        agencyId,
+        variables: { appName: env.APP_NAME ?? "Agency" },
       });
       return { sent: true, message: "Test email sent successfully." };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to send test email.";
-      return { sent: false, message };
+    } catch {
+      return { sent: false, message: "Seems there is a problem with your SMTP email configuration." };
     }
   }
 }

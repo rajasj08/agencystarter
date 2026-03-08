@@ -140,6 +140,11 @@ export async function forgotPassword(email: string) {
   return data.data;
 }
 
+export async function validateResetToken(token: string): Promise<{ valid: boolean }> {
+  const { data } = await api.post<ApiSuccess<{ valid: boolean }>>("/auth/validate-reset-token", { token });
+  return data.data;
+}
+
 export async function resetPassword(token: string, password: string) {
   const { data } = await api.post<ApiSuccess<{ message: string }>>("/auth/reset-password", { token, password });
   return data.data;

@@ -43,7 +43,8 @@ export default function DocsIndexPage() {
         <a href="/getting-started">Getting Started</a> walks through installation
         and running the app. <a href="/architecture">Architecture</a> outlines
         structure and data flow. <a href="/auth-sso">Auth & SSO</a> covers login
-        flows and OIDC configuration.
+        flows and OIDC configuration. <a href="/emails">Email sending</a> documents
+        when emails are sent, which templates are used, and how link expiry is configured.
       </p>
     </DocsLayout>
   );

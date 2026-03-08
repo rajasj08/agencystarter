@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Eye, Pencil } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/design";
 import { ROUTES } from "@/constants/routes";
 import { ViewRoleModal } from "./ViewRoleModal";
@@ -54,20 +55,24 @@ export function RoleTable({ data, loading, sort }: RoleTableProps) {
       key: "actions",
       header: "Actions",
       render: (row) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => openViewModal(row.id)}
-            className="text-sm font-medium text-primary hover:underline"
+            title="View role"
+            className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-text-primary"
+            aria-label="View role"
           >
-            View
+            <Eye className="h-4 w-4" aria-hidden />
           </button>
           {!row.isSystem && (
             <Link
               href={ROUTES.ROLE_EDIT(row.id)}
-              className="text-sm font-medium text-primary hover:underline"
+              title="Edit role"
+              className="rounded-md p-2 text-text-secondary hover:bg-muted hover:text-text-primary inline-flex"
+              aria-label="Edit role"
             >
-              Edit
+              <Pencil className="h-4 w-4" aria-hidden />
             </Link>
           )}
         </div>

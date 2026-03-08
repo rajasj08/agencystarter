@@ -133,7 +133,7 @@ export class UserService {
         displayName: input.displayName ?? input.name ?? null,
       });
       if (invite) {
-        await this.sendInvitationEmail(user);
+        await this.sendInvitationEmail(agencyId, user);
       }
       return toUserPublicDTO(user);
     }
@@ -148,18 +148,22 @@ export class UserService {
       emailVerifiedAt,
     });
     if (invite) {
-      await this.sendInvitationEmail(user);
+      await this.sendInvitationEmail(agencyId, user);
     }
     return toUserPublicDTO(user);
   }
 
   /** Send invitation email (set-password link) for INVITED users. Uses welcome/invitation copy, not password-reset copy. */
-  private async sendInvitationEmail(user: { id: string; email: string; displayName?: string | null; firstName?: string | null; lastName?: string | null }) {
+  private async sendInvitationEmail(
+    agencyId: string,
+    user: { id: string; email: string; displayName?: string | null; firstName?: string | null; lastName?: string | null }
+  ) {
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + env.INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
     await authRepo.createPasswordReset(user.id, token, expiresAt);
     const link = `${env.CORS_ORIGIN}/reset-password?token=${token}`;
-    await sendUserInvitationEmail(user.email, userDisplayName(user), link, "7 days");
+    const expiryDisplay = env.INVITATION_EXPIRY_DAYS === 1 ? "24 hours" : `${env.INVITATION_EXPIRY_DAYS} days`;
+    await sendUserInvitationEmail(user.email, userDisplayName(user), link, expiryDisplay, agencyId);
   }
 
   async update(
@@ -273,10 +277,10 @@ export class UserService {
     if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
     await authRepo.deletePasswordResetsByUserId(user.id);
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + env.PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000);
     await authRepo.createPasswordReset(user.id, token, expiresAt);
     const link = `${env.CORS_ORIGIN}/reset-password?token=${token}`;
-    await sendPasswordResetByAdminEmail(user.email, userDisplayName(user), link, "60");
+    await sendPasswordResetByAdminEmail(user.email, userDisplayName(user), link, String(env.PASSWORD_RESET_EXPIRY_MINUTES), agencyId);
     return { message: "Password reset email sent", email: user.email };
   }
 
@@ -353,7 +357,7 @@ export class UserService {
     if (user.status !== "INVITED") {
       throw new AppError(ERROR_CODES.VALIDATION_ERROR, "Only invited users can have invitation resent", 400);
     }
-    await this.sendInvitationEmail(user);
+    await this.sendInvitationEmail(agencyId, user);
     return { message: "Invitation resent" };
   }
 

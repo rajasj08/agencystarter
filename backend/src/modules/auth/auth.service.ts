@@ -212,7 +212,7 @@ export class AuthService extends BaseService {
     });
     if (env.REQUIRE_EMAIL_VERIFICATION) {
       const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + env.EMAIL_VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
       await authRepo.createEmailVerification(user.id, token, expiresAt);
       await this.sendVerificationEmail(user.email, token, this.userDisplayName(user));
       return {
@@ -312,11 +312,20 @@ export class AuthService extends BaseService {
     const user = await authRepo.findByEmail(input.email);
     if (user) {
       const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + env.PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000);
       await authRepo.createPasswordReset(user.id, token, expiresAt);
       await this.sendPasswordResetEmail(user.email, token, this.userDisplayName(user));
     }
     return { message: "If an account exists, you will receive a password reset link" };
+  }
+
+  /** Check if a reset token exists and is not expired. Used by frontend before showing the set-password form. */
+  async validateResetToken(token: string): Promise<{ valid: boolean }> {
+    const reset = await authRepo.findPasswordResetByToken(token);
+    if (!reset || reset.expiresAt < new Date()) {
+      return { valid: false };
+    }
+    return { valid: true };
   }
 
   async resetPassword(input: ResetPasswordInput) {
@@ -514,7 +523,7 @@ export class AuthService extends BaseService {
 
   private async sendPasswordResetEmail(email: string, token: string, userName: string | null) {
     const link = `${env.CORS_ORIGIN}/reset-password?token=${token}`;
-    const sent = await sendPasswordResetEmailMail(email, userName, link, "60");
+    const sent = await sendPasswordResetEmailMail(email, userName, link, String(env.PASSWORD_RESET_EXPIRY_MINUTES));
     if (!sent && env.NODE_ENV === "development") {
       console.log("[auth] Password reset link (no SMTP):", link);
     }

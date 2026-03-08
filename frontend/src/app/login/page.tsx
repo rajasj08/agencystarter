@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import { LoginForm } from "@/modules/auth";
 
-export default function LoginPage() {
+function LoginContent() {
   const searchParams = useSearchParams();
   const [ssoError, setSsoError] = useState<string | null>(null);
 
@@ -19,13 +19,23 @@ export default function LoginPage() {
   }, [searchParams]);
 
   return (
-    <AuthLayout>
+    <>
       {ssoError && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {ssoError}
         </div>
       )}
       <LoginForm />
+    </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <AuthLayout>
+      <Suspense fallback={<div className="animate-pulse rounded bg-muted h-10 w-full max-w-sm" />}>
+        <LoginContent />
+      </Suspense>
     </AuthLayout>
   );
 }

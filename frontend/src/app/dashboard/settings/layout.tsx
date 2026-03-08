@@ -9,6 +9,7 @@ const tabs = [
   { label: "General", href: ROUTES.SETTINGS_GENERAL },
   { label: "User Management", href: ROUTES.SETTINGS_USERS },
   { label: "Email", href: ROUTES.SETTINGS_EMAIL },
+  { label: "Email Templates", href: ROUTES.SETTINGS_EMAIL_TEMPLATES },
   { label: "Security", href: ROUTES.SETTINGS_SECURITY },
 ];
 

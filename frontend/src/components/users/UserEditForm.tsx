@@ -263,7 +263,7 @@ export function UserEditForm({
             <div className="pt-4">
               <AppButton
                 type="button"
-                variant="default"
+                variant="primary"
                 onClick={() => setRestoreConfirmOpen(true)}
               >
                 Restore user
@@ -395,7 +395,7 @@ export function UserEditForm({
                   {actionFlags?.activate && actions.activateUser && (
                     <AppButton
                       type="button"
-                      variant="default"
+                      variant="primary"
                       onClick={() => setActivateConfirmOpen(true)}
                     >
                       Activate user

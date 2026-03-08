@@ -785,12 +785,12 @@ export class SuperadminService {
     }
     await authRepository.deletePasswordResetsByUserId(user.id);
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + env.PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000);
     await authRepository.createPasswordReset(user.id, token, expiresAt);
     const link = `${env.CORS_ORIGIN}/reset-password?token=${token}`;
     const displayName =
       (user.displayName?.trim() ?? [user.firstName, user.lastName].filter(Boolean).join(" ").trim()) || null;
-    await sendPasswordResetByAdminEmail(user.email, displayName || null, link, "60");
+    await sendPasswordResetByAdminEmail(user.email, displayName || null, link, String(env.PASSWORD_RESET_EXPIRY_MINUTES));
     await audit(req, {
       action: "SUPERADMIN_ACTION",
       resource: "user",

@@ -308,3 +308,35 @@ model Invoice {
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 }
+
+// Email send audit: template, recipient, agency, status, error. Used for debugging and support.
+model EmailLog {
+  id        String    @id @default(cuid())
+  template  String
+  recipient String
+  agencyId  String?
+  status    String    // e.g. "sent", "failed"
+  error     String?   // error message when status=failed
+  sentAt    DateTime  @default(now())
+
+  @@index([recipient, sentAt])
+  @@index([agencyId, sentAt])
+  @@index([template, sentAt])
+}
+
+// Email template overrides: agency or system (agencyId null). Overrides filesystem template when present.
+model EmailTemplateOverride {
+  id        String    @id @default(cuid())
+  templateKey String
+  agencyId  String?   // null = system override
+  subject   String
+  htmlBody  String
+  textBody  String?
+  enabled   Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([templateKey])
+  @@index([agencyId])
+  @@unique([templateKey, agencyId])
+}

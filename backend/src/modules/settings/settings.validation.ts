@@ -20,23 +20,17 @@ export const agencySettingsSchema = z.object({
   dateFormat: z.string().max(30).optional().nullable(),
   currency: z.string().length(3).optional().nullable(),
   // User management
-  allowSelfRegistration: z.boolean().optional(),
   defaultUserRole: z.string().max(50).optional().nullable(),
   /** Role ID (CUID). Preferred over defaultUserRole; stable when role is renamed. */
   defaultUserRoleId: z.string().min(1).max(100).optional().nullable(),
-  requireAdminApproval: z.boolean().optional(),
-  allowUserInvitations: z.boolean().optional(),
-  // SMTP
+  // SMTP (smtpEnabled: true = use agency SMTP; false = fallback to system)
+  smtpEnabled: z.boolean().optional(),
   smtpHost: z.string().max(255).optional().nullable(),
   smtpPort: z.coerce.number().int().min(1).max(65535).optional().nullable(),
   smtpUsername: z.string().max(255).optional().nullable(),
   smtpPassword: z.string().max(500).optional().nullable(),
   senderName: z.string().max(255).optional().nullable(),
   senderEmail: z.string().email().optional().nullable().or(z.literal("")),
-  // Email features
-  enableEmails: z.boolean().optional(),
-  enableVerificationEmails: z.boolean().optional(),
-  enableResetEmails: z.boolean().optional(),
   theme: z.enum(["light", "dark", "system"]).optional().nullable(),
   /** Per-tenant IP allowlist: array of IPv4 CIDR strings (e.g. "192.168.1.0/24"). Empty = no restriction. */
   ipAllowlist: z

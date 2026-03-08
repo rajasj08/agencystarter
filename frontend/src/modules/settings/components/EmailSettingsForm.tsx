@@ -7,7 +7,7 @@ import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormProviderWrapper } from "@/components/forms";
 import { FormInput } from "@/components/forms";
-import { AppButton, ToggleSwitch } from "@/components/design";
+import { AppButton } from "@/components/design";
 import { getSettings, updateSettings, sendTestEmail } from "@/modules/settings/services/settingsService";
 import type { AgencySettings } from "../types/settingsTypes";
 import { toast } from "@/lib/toast";
@@ -19,9 +19,6 @@ const schema = z.object({
   smtpPassword: z.string().max(500).optional().nullable(),
   senderName: z.string().max(255).optional().nullable(),
   senderEmail: z.string().email().optional().or(z.literal("")),
-  enableEmails: z.boolean(),
-  enableVerificationEmails: z.boolean(),
-  enableResetEmails: z.boolean(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -42,9 +39,6 @@ export function EmailSettingsForm() {
       smtpPassword: "",
       senderName: "",
       senderEmail: "",
-      enableEmails: true,
-      enableVerificationEmails: true,
-      enableResetEmails: true,
     },
   });
 
@@ -60,9 +54,6 @@ export function EmailSettingsForm() {
           smtpPassword: "",
           senderName: data.senderName ?? "",
           senderEmail: data.senderEmail ?? "",
-          enableEmails: data.enableEmails ?? true,
-          enableVerificationEmails: data.enableVerificationEmails ?? true,
-          enableResetEmails: data.enableResetEmails ?? true,
         });
       })
       .catch(() => setInitialData(null))
@@ -78,9 +69,6 @@ export function EmailSettingsForm() {
         smtpUsername: values.smtpUsername || null,
         senderName: values.senderName || null,
         senderEmail: values.senderEmail || null,
-        enableEmails: values.enableEmails,
-        enableVerificationEmails: values.enableVerificationEmails,
-        enableResetEmails: values.enableResetEmails,
       };
       if (values.smtpPassword != null && String(values.smtpPassword).trim() !== "") {
         payload.smtpPassword = values.smtpPassword;
@@ -123,8 +111,8 @@ export function EmailSettingsForm() {
   }
 
   return (
-    <div className="space-y-6">
-      <FormProviderWrapper form={form as never} onSubmit={handleSubmit} className="space-y-6">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <FormProviderWrapper form={form as never} onSubmit={handleSubmit} className="contents">
         <Card className="rounded-2xl shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="text-base font-medium">SMTP</CardTitle>
@@ -133,7 +121,7 @@ export function EmailSettingsForm() {
             <p className="mb-4 text-sm text-text-secondary">
               Configure the SMTP server used to send emails (verification, password reset, etc.).
             </p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4">
               <FormInput name="smtpHost" label="Host" placeholder="smtp.example.com" />
               <FormInput name="smtpPort" label="Port" type="number" placeholder="587" helperText="Usually 587 (TLS) or 465 (SSL)." />
               <FormInput name="smtpUsername" label="Username" />
@@ -141,41 +129,14 @@ export function EmailSettingsForm() {
               <FormInput name="senderName" label="Sender name" placeholder="Agency Name" />
               <FormInput name="senderEmail" label="Sender email" type="email" placeholder="noreply@example.com" />
             </div>
+            <AppButton type="submit" loading={saving} disabled={saving} className="mt-2">
+              Save email settings
+            </AppButton>
           </CardContent>
         </Card>
-
-        <div className="max-w-[50%] space-y-6">
-        <Card className="rounded-2xl shadow-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base font-medium">Email features</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 p-6">
-            <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
-              <div>
-                <span className="text-sm font-medium text-text-primary">Enable emails</span>
-                <p className="text-xs text-text-secondary">Master switch for sending emails.</p>
-              </div>
-              <ToggleSwitch id="enableEmails" {...form.register("enableEmails")} />
-            </div>
-            <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
-              <span className="text-sm text-text-primary">Enable verification emails</span>
-              <ToggleSwitch id="enableVerificationEmails" {...form.register("enableVerificationEmails")} />
-            </div>
-            <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
-              <span className="text-sm text-text-primary">Enable reset emails</span>
-              <ToggleSwitch id="enableResetEmails" {...form.register("enableResetEmails")} />
-            </div>
-          </CardContent>
-        </Card>
-
-        <AppButton type="submit" loading={saving} disabled={saving}>
-          Save email settings
-        </AppButton>
-        </div>
       </FormProviderWrapper>
 
-      <div className="max-w-[50%]">
-      <Card className="rounded-2xl shadow-sm">
+      <Card className="h-fit self-start rounded-2xl shadow-sm">
         <CardHeader className="pb-4">
           <CardTitle className="text-base font-medium">Test email</CardTitle>
         </CardHeader>
@@ -201,7 +162,6 @@ export function EmailSettingsForm() {
           </div>
         </CardContent>
       </Card>
-      </div>
     </div>
   );
 }

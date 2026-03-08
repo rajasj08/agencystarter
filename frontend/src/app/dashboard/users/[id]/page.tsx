@@ -68,7 +68,7 @@ export default function UserViewPage() {
             <div className="flex gap-2">
               {user.deletedAt != null ? (
                 hasPermission(PERMISSIONS.USER_UPDATE) && (
-                  <AppButton variant="default" asChild>
+                  <AppButton variant="primary" asChild>
                     <Link href={ROUTES.USER_EDIT(id)}>Restore user</Link>
                   </AppButton>
                 )

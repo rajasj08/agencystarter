@@ -44,6 +44,14 @@ export const env = {
   CORS_ORIGIN: optional("CORS_ORIGIN", "http://localhost:3000"),
   APP_NAME: optional("APP_NAME", "Agency Starter"),
 
+  // Email link / token expiry (used for verification, password reset, invitation)
+  /** Verification link validity in hours. Default 24. */
+  EMAIL_VERIFICATION_EXPIRY_HOURS: parseInt(optional("EMAIL_VERIFICATION_EXPIRY_HOURS", "24"), 10),
+  /** Password reset link validity in minutes. Default 60. */
+  PASSWORD_RESET_EXPIRY_MINUTES: parseInt(optional("PASSWORD_RESET_EXPIRY_MINUTES", "60"), 10),
+  /** Invitation (set password) link validity in days. Default 7. */
+  INVITATION_EXPIRY_DAYS: parseInt(optional("INVITATION_EXPIRY_DAYS", "7"), 10),
+
   // Rate limit (global for API; auth routes use stricter limit)
   RATE_LIMIT_WINDOW_MS: parseInt(optional("RATE_LIMIT_WINDOW_MS", "900000"), 10),
   RATE_LIMIT_MAX: parseInt(optional("RATE_LIMIT_MAX", "300"), 10),

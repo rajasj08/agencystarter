@@ -20,12 +20,9 @@ export interface AgencySettings {
   dateFormat?: string | null;
   currency?: string | null;
   // User management
-  allowSelfRegistration?: boolean;
   defaultUserRole?: string | null;
   /** Role ID (UUID). Preferred; stable when role is renamed. */
   defaultUserRoleId?: string | null;
-  requireAdminApproval?: boolean;
-  allowUserInvitations?: boolean;
   // SMTP
   smtpHost?: string | null;
   smtpPort?: number | null;
@@ -33,10 +30,6 @@ export interface AgencySettings {
   smtpPassword?: string | null;
   senderName?: string | null;
   senderEmail?: string | null;
-  // Email features
-  enableEmails?: boolean;
-  enableVerificationEmails?: boolean;
-  enableResetEmails?: boolean;
   theme?: "light" | "dark" | "system" | null;
 }
 

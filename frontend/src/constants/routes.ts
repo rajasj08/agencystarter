@@ -27,6 +27,8 @@ export const ROUTES = {
   SETTINGS_GENERAL: "/dashboard/settings/general",
   SETTINGS_SECURITY: "/dashboard/settings/security",
   SETTINGS_EMAIL: "/dashboard/settings/email",
+  SETTINGS_EMAIL_TEMPLATES: "/dashboard/settings/email-templates",
+  SETTINGS_EMAIL_TEMPLATE_EDIT: (key: string) => `/dashboard/settings/email-templates/${encodeURIComponent(key)}`,
   SETTINGS_USERS: "/dashboard/settings/users",
   PROFILE: "/dashboard/profile",
   AUDIT_LOGS: "/dashboard/audit-logs",
@@ -42,6 +44,8 @@ export const ROUTES = {
   SUPERADMIN_PLANS_CREATE: "/superadmin/plans/create",
   SUPERADMIN_PLAN_EDIT: (id: string) => `/superadmin/plans/${id}/edit`,
   SUPERADMIN_SYSTEM_SETTINGS: "/superadmin/system-settings",
+  SUPERADMIN_EMAIL_TEMPLATES: "/superadmin/email-templates",
+  SUPERADMIN_EMAIL_TEMPLATE_EDIT: (key: string) => `/superadmin/email-templates/${encodeURIComponent(key)}`,
   SUPERADMIN_AUDIT: "/superadmin/audit",
 } as const;
 

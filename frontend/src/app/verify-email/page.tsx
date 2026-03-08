@@ -2,22 +2,22 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { AuthLayout } from "@/layouts/AuthLayout";
-import { AppCard, AppButton } from "@/components/design";
+import { AuthLinkStatusCard } from "@/components/auth/AuthLinkStatusCard";
+import { isSampleLinkToken, AUTH_LINK_COPY } from "@/lib/authLinkConstants";
 import { verifyEmail } from "@/services/auth";
+import { getApiErrorCode } from "@/lib/apiError";
 import { ROUTES } from "@/constants/routes";
+
+const EMAIL_VERIFICATION_EXPIRED = "EMAIL_VERIFICATION_EXPIRED";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [error, setError] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "expired" | "invalid">("idle");
 
   useEffect(() => {
-    if (!token) {
-      setStatus("error");
-      setError("Missing verification token");
+    if (!token || isSampleLinkToken(token)) {
+      setStatus("invalid");
       return;
     }
     let cancelled = false;
@@ -26,10 +26,9 @@ function VerifyEmailContent() {
       .then(() => {
         if (!cancelled) setStatus("success");
       })
-      .catch(() => {
+      .catch((err) => {
         if (!cancelled) {
-          setStatus("error");
-          setError("Invalid or expired verification link");
+          setStatus(getApiErrorCode(err) === EMAIL_VERIFICATION_EXPIRED ? "expired" : "invalid");
         }
       });
     return () => {
@@ -37,44 +36,61 @@ function VerifyEmailContent() {
     };
   }, [token]);
 
+  if (!token) {
+    return (
+      <AuthLinkStatusCard
+        variant="expired"
+        title={AUTH_LINK_COPY.verification.invalid.title}
+        message={AUTH_LINK_COPY.verification.invalid.message}
+        primaryAction={{ label: "Back to login", href: ROUTES.LOGIN }}
+        secondaryAction={{ label: "Register again", href: ROUTES.REGISTER }}
+      />
+    );
+  }
+
+  if (isSampleLinkToken(token)) {
+    return (
+      <AuthLinkStatusCard
+        variant="invalid"
+        title={AUTH_LINK_COPY.sampleLink.title}
+        message={AUTH_LINK_COPY.sampleLink.message}
+        primaryAction={{ label: "Back to login", href: ROUTES.LOGIN }}
+        secondaryAction={{ label: "Register", href: ROUTES.REGISTER }}
+      />
+    );
+  }
+
   if (status === "loading" || status === "idle") {
     return (
-      <AuthLayout>
-        <AppCard>
-          <p className="text-text-secondary">Verifying your email…</p>
-        </AppCard>
-      </AuthLayout>
+      <AuthLinkStatusCard
+        variant="loading"
+        title=""
+        message="Verifying your email…"
+        primaryAction={{ label: "", href: ROUTES.LOGIN }}
+      />
     );
   }
 
   if (status === "success") {
     return (
-      <AuthLayout>
-        <AppCard title="Email verified">
-          <div className="flex flex-col gap-4">
-            <p className="text-text-secondary">
-              Your email has been verified. You can now log in to your account.
-            </p>
-            <Link href={ROUTES.LOGIN}>
-              <AppButton className="w-full">Log in</AppButton>
-            </Link>
-          </div>
-        </AppCard>
-      </AuthLayout>
+      <AuthLinkStatusCard
+        variant="success"
+        title={AUTH_LINK_COPY.verification.success.title}
+        message={AUTH_LINK_COPY.verification.success.message}
+        primaryAction={{ label: "Log in", href: ROUTES.LOGIN }}
+      />
     );
   }
 
+  const isExpired = status === "expired";
   return (
-    <AuthLayout>
-      <AppCard title="Verification failed">
-        <div className="flex flex-col gap-4">
-          <p className="text-danger">{error}</p>
-          <Link href={ROUTES.LOGIN}>
-            <AppButton>Back to login</AppButton>
-          </Link>
-        </div>
-      </AppCard>
-    </AuthLayout>
+    <AuthLinkStatusCard
+      variant="expired"
+      title={isExpired ? AUTH_LINK_COPY.verification.expired.title : AUTH_LINK_COPY.verification.invalid.title}
+      message={isExpired ? AUTH_LINK_COPY.verification.expired.message : AUTH_LINK_COPY.verification.invalid.message}
+      primaryAction={{ label: "Back to login", href: ROUTES.LOGIN }}
+      secondaryAction={{ label: "Register again", href: ROUTES.REGISTER }}
+    />
   );
 }
 
@@ -82,11 +98,12 @@ export default function VerifyEmailPage() {
   return (
     <Suspense
       fallback={
-        <AuthLayout>
-          <AppCard>
-            <p className="text-text-secondary">Loading…</p>
-          </AppCard>
-        </AuthLayout>
+        <AuthLinkStatusCard
+          variant="loading"
+          title=""
+          message="Loading…"
+          primaryAction={{ label: "", href: ROUTES.LOGIN }}
+        />
       }
     >
       <VerifyEmailContent />
