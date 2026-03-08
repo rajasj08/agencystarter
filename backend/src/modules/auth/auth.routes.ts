@@ -26,7 +26,7 @@ router.get("/sessions", authMiddleware, asyncHandler(controller.getSessions.bind
 router.get(
   "/sessions/tenant",
   authMiddleware,
-  requireTenant,
+  asyncHandler(requireTenant),
   asyncHandler(tenantIpGuard),
   requirePermission(PERMISSIONS.USER_LIST, PERMISSIONS.ADMIN_ALL),
   asyncHandler(controller.getSessionsForTenant.bind(controller))

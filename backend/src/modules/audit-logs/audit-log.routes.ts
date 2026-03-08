@@ -12,7 +12,7 @@ const controller = new AuditLogController();
 
 // Order: auth → tenant → permission.
 router.use(authMiddleware);
-router.use(requireTenant);
+router.use(asyncHandler(requireTenant));
 router.use(asyncHandler(tenantIpGuard));
 
 router.get(

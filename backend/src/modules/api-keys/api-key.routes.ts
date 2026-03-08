@@ -11,7 +11,7 @@ const router = Router();
 const controller = new ApiKeyController();
 
 router.use(authMiddleware);
-router.use(requireTenant);
+router.use(asyncHandler(requireTenant));
 router.use(asyncHandler(tenantIpGuard));
 router.use(requirePermission(PERMISSIONS.SETTINGS_UPDATE, PERMISSIONS.ADMIN_ALL));
 

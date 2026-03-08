@@ -55,14 +55,17 @@ function encodeState(payload: SsoStatePayload): string {
 }
 
 /**
- * Enforce agency–provider consistency. Fail early at initiate and callback.
- * Use generic "Not found" when agency missing to avoid enumeration.
+ * Enforce agency–provider consistency and active agency. Fail early at initiate and callback.
+ * Use generic "Not found" when agency missing or not active to avoid enumeration.
  */
 function getOidcConfigFromAgency(
-  agency: { id: string; ssoConfig: unknown; ssoEnabled: boolean; ssoProvider: string | null } | null,
+  agency: { id: string; status?: string; ssoConfig: unknown; ssoEnabled: boolean; ssoProvider: string | null } | null,
   provider: string
 ): OidcConfig {
   if (!agency) {
+    throw new AppError(ERROR_CODES.USER_NOT_FOUND, "Not found", 404);
+  }
+  if (agency.status !== "ACTIVE") {
     throw new AppError(ERROR_CODES.USER_NOT_FOUND, "Not found", 404);
   }
   if (!agency.ssoEnabled) {

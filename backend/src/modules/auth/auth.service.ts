@@ -123,6 +123,11 @@ export class AuthService extends BaseService {
       if (roleName === ROLES.SUPER_ADMIN || user.agencyId !== agency.id) {
         throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Invalid email or password", 401);
       }
+    } else if (user.agencyId) {
+      const agency = await agencyRepository.findById(user.agencyId);
+      if (!agency || agency.status !== "ACTIVE") {
+        throw new AppError(ERROR_CODES.AGENCY_NOT_ACTIVE, "Your organization is not available", 403);
+      }
     }
 
     const { auditLogin } = await import("../../lib/audit.js");
@@ -264,6 +269,13 @@ export class AuthService extends BaseService {
     if (user.deletedAt || user.status !== "ACTIVE") {
       await authRepo.deleteSessionById(session.id);
       throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID, "Invalid session", 401);
+    }
+    if (user.agencyId) {
+      const agency = await agencyRepository.findById(user.agencyId);
+      if (!agency || agency.status !== "ACTIVE") {
+        await authRepo.deleteSessionById(session.id);
+        throw new AppError(ERROR_CODES.AGENCY_NOT_ACTIVE, "Your organization is not available", 403);
+      }
     }
     const { role, roleId } = this.roleNameAndId(user);
     const roleVersion = user.roleRef?.permissionsVersion ?? 1;

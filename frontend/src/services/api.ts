@@ -24,8 +24,17 @@ api.interceptors.response.use(
   async (err) => {
     const original = err.config;
     const hadAuth = original?.headers?.Authorization;
+    const code = err.response?.data?.code as string | undefined;
+    const status = err.response?.status;
+
+    if (typeof window !== "undefined" && status === 403 && code === "AGENCY_NOT_ACTIVE") {
+      useAuthStore.getState().clearAuth();
+      window.location.href = "/login?reason=organization_unavailable";
+      return Promise.reject(err);
+    }
+
     if (
-      err.response?.status === 401 &&
+      status === 401 &&
       !original._retry &&
       typeof window !== "undefined" &&
       hadAuth

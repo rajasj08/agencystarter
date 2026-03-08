@@ -13,7 +13,7 @@ const controller = new SettingsController();
 
 // Order: auth → tenant → permission.
 router.use(authMiddleware);
-router.use(requireTenant);
+router.use(asyncHandler(requireTenant));
 router.use(asyncHandler(tenantIpGuard));
 
 router.get("/", requirePermission(PERMISSIONS.SETTINGS_READ, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.get.bind(controller)));

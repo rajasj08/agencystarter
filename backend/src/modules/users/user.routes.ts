@@ -12,7 +12,7 @@ const controller = new UserController();
 
 // Order: auth → tenant → permission (scoping before permission check).
 router.use(authMiddleware);
-router.use(requireTenant);
+router.use(asyncHandler(requireTenant));
 router.use(asyncHandler(tenantIpGuard));
 
 router.get("/", requirePermission(PERMISSIONS.USER_LIST, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.list.bind(controller)));

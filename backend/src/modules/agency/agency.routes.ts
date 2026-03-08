@@ -22,7 +22,7 @@ router.get("/", requirePermission(PERMISSIONS.AGENCY_LIST, PERMISSIONS.ADMIN_ALL
 router.get("/:id", requirePermission(PERMISSIONS.AGENCY_READ, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.getById.bind(controller)));
 router.patch(
   "/:id",
-  requireTenant,
+  asyncHandler(requireTenant),
   asyncHandler(tenantIpGuard),
   requirePermission(PERMISSIONS.AGENCY_UPDATE, PERMISSIONS.ADMIN_ALL),
   asyncHandler(controller.updateTenant.bind(controller))

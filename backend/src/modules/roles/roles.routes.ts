@@ -26,7 +26,7 @@ router.get(
   asyncHandler(controller.getMyPermissionIds.bind(controller))
 );
 
-router.use(requireTenant);
+router.use(asyncHandler(requireTenant));
 router.use(asyncHandler(tenantIpGuard));
 router.get("/", requirePermission(PERMISSIONS.ROLE_READ, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.listRoles.bind(controller)));
 router.get("/:id", requirePermission(PERMISSIONS.ROLE_READ, PERMISSIONS.ADMIN_ALL), asyncHandler(controller.getRoleById.bind(controller)));
