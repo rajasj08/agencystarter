@@ -84,6 +84,13 @@ export class AuthService extends BaseService {
     if (user.deletedAt) {
       throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Invalid email or password", 401);
     }
+    // Check INVITED / PENDING_VERIFICATION before "no password" so invited users get the right message (not "Use SSO").
+    if (user.status === "INVITED") {
+      throw new AppError(ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED, "Please set your password using the invitation link to sign in", 403);
+    }
+    if (user.status === "PENDING_VERIFICATION") {
+      throw new AppError(ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED, "Please verify your email to sign in", 403);
+    }
     if (!user.passwordHash) {
       throw new AppError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, "Use SSO to sign in", 401);
     }
@@ -98,9 +105,6 @@ export class AuthService extends BaseService {
     }
     if (user.status === "SUSPENDED") {
       throw new AppError(ERROR_CODES.AUTH_USER_DISABLED, "Account is suspended", 403);
-    }
-    if (user.status === "INVITED") {
-      throw new AppError(ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED, "Please set your password using the invitation link to sign in", 403);
     }
     if (user.status !== "ACTIVE") {
       throw new AppError(ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED, "Please verify your email to sign in", 403);

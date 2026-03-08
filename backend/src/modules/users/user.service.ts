@@ -13,7 +13,7 @@ import { ERROR_CODES } from "../../constants/errorCodes.js";
 import { ROLES } from "../../constants/roles.js";
 import { USER_STATUS } from "../../constants/userStatus.js";
 import { env } from "../../config/env.js";
-import { sendPasswordResetEmail, sendPasswordResetByAdminEmail } from "../../lib/mail.js";
+import { sendPasswordResetByAdminEmail, sendUserInvitationEmail } from "../../lib/mail.js";
 import type { CreateUserInput, UpdateUserInput } from "./user.validation.js";
 import type { PaginationOptions } from "../../types/index.js";
 import { get as getSystemConfig } from "../../services/SystemConfigCache.js";
@@ -153,13 +153,13 @@ export class UserService {
     return toUserPublicDTO(user);
   }
 
-  /** Send invitation email (set-password link) for INVITED users. */
+  /** Send invitation email (set-password link) for INVITED users. Uses welcome/invitation copy, not password-reset copy. */
   private async sendInvitationEmail(user: { id: string; email: string; displayName?: string | null; firstName?: string | null; lastName?: string | null }) {
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await authRepo.createPasswordReset(user.id, token, expiresAt);
     const link = `${env.CORS_ORIGIN}/reset-password?token=${token}`;
-    await sendPasswordResetEmail(user.email, userDisplayName(user), link, "10080"); // 7 days in minutes
+    await sendUserInvitationEmail(user.email, userDisplayName(user), link, "7 days");
   }
 
   async update(

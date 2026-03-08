@@ -146,3 +146,25 @@ export async function sendPasswordResetByAdminEmail(
     text: `Hi ${userName ?? "there"},\n\nAn administrator has sent you a password reset link for your ${env.APP_NAME} account. Open the link below to set a new password (valid for ${expiryMinutes} minutes):\n${resetLink}\n\nIf you have any questions, contact your administrator.\n\n— ${env.APP_NAME}`,
   });
 }
+
+/** Invitation email when an admin creates a user with "Send invitation". Welcome copy, not password-reset copy. */
+export async function sendUserInvitationEmail(
+  to: string,
+  userName: string | null,
+  setPasswordLink: string,
+  expiryDisplay: string
+): Promise<boolean> {
+  const html = renderTemplate("invitation", {
+    appName: env.APP_NAME,
+    userName: userName ?? "there",
+    setPasswordLink,
+    expiryDisplay,
+  });
+  const subject = `You're invited to join ${env.APP_NAME}`;
+  return sendMail({
+    to,
+    subject,
+    html,
+    text: `Hi ${userName ?? "there"},\n\nYou've been invited to create an account for ${env.APP_NAME}. Click the link below to set your password and get started. This link expires in ${expiryDisplay}.\n\n${setPasswordLink}\n\nIf you have any questions, contact your administrator.\n\n— ${env.APP_NAME}`,
+  });
+}
