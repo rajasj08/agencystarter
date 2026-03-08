@@ -4,10 +4,8 @@ export interface SystemSettingsDTO {
   allowRegistration: boolean;
   emailVerificationRequired: boolean;
   maintenanceMessage: string | null;
-  defaultTheme: string;
   allowAgencyRegistration: boolean;
   maxUsersPerAgency: number | null;
-  defaultTimezone: string;
   maintenanceMode: boolean;
 }
 
@@ -15,10 +13,8 @@ export interface SystemSettingsUpdateInput {
   allowRegistration?: boolean;
   emailVerificationRequired?: boolean;
   maintenanceMessage?: string | null;
-  defaultTheme?: string;
   allowAgencyRegistration?: boolean;
   maxUsersPerAgency?: number | null;
-  defaultTimezone?: string;
   maintenanceMode?: boolean;
 }
 

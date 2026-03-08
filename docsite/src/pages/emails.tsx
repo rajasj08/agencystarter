@@ -24,7 +24,7 @@ export default function EmailsPage() {
         </thead>
         <tbody>
           <tr>
-            <td className="border border-docs-border px-3 py-2">User registers and <code>REQUIRE_EMAIL_VERIFICATION</code> is true</td>
+            <td className="border border-docs-border px-3 py-2">User registers and system setting “Require email verification” is on</td>
             <td className="border border-docs-border px-3 py-2"><code>verification</code></td>
             <td className="border border-docs-border px-3 py-2"><code>EMAIL_VERIFICATION_EXPIRY_HOURS</code> (default 24). Link in email verifies the user’s address.</td>
           </tr>

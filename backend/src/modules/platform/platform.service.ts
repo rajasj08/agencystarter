@@ -1,19 +1,18 @@
 import { env } from "../../config/env.js";
 import { API_VERSION } from "../../config/version.js";
 import { getFeatureRegistry } from "../../config/features/registry.js";
-import { systemSettingsRepository as systemSettingsRepo } from "../../lib/data-access.js";
 import { get as getSystemConfig } from "../../services/SystemConfigCache.js";
 
-
+/** Public platform config for frontend. Only policy flags and maintenance; no limits (e.g. maxUsersPerAgency). */
 export interface PlatformConfigDTO {
   appName: string;
   apiPrefix: string;
   corsOrigin: string;
   allowRegistration: boolean;
+  allowAgencyRegistration: boolean;
   emailVerificationRequired: boolean;
-  maintenanceMessage: string | null;
   maintenanceMode: boolean;
-  defaultTheme: string;
+  maintenanceMessage: string | null;
 }
 
 export interface PlatformFeaturesDTO {
@@ -33,10 +32,10 @@ export class PlatformService {
       apiPrefix: env.API_PREFIX,
       corsOrigin: env.CORS_ORIGIN,
       allowRegistration: config.allowRegistration,
+      allowAgencyRegistration: config.allowAgencyRegistration,
       emailVerificationRequired: config.emailVerificationRequired,
-      maintenanceMessage: config.maintenanceMessage,
       maintenanceMode: config.maintenanceMode,
-      defaultTheme: config.defaultTheme,
+      maintenanceMessage: config.maintenanceMessage,
     };
   }
 

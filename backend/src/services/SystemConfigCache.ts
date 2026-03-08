@@ -9,10 +9,8 @@ export interface SystemConfig {
   allowRegistration: boolean;
   emailVerificationRequired: boolean;
   maintenanceMessage: string | null;
-  defaultTheme: string;
   allowAgencyRegistration: boolean;
   maxUsersPerAgency: number | null;
-  defaultTimezone: string;
   maintenanceMode: boolean;
 }
 
@@ -20,10 +18,8 @@ const DEFAULTS: SystemConfig = {
   allowRegistration: true,
   emailVerificationRequired: false,
   maintenanceMessage: null,
-  defaultTheme: "light",
   allowAgencyRegistration: true,
   maxUsersPerAgency: null,
-  defaultTimezone: "UTC",
   maintenanceMode: false,
 };
 
@@ -40,10 +36,8 @@ export async function refresh(): Promise<SystemConfig> {
     allowRegistration: row.allowRegistration,
     emailVerificationRequired: row.emailVerificationRequired,
     maintenanceMessage: row.maintenanceMessage,
-    defaultTheme: row.defaultTheme,
     allowAgencyRegistration: row.allowAgencyRegistration,
     maxUsersPerAgency: row.maxUsersPerAgency,
-    defaultTimezone: row.defaultTimezone,
     maintenanceMode: row.maintenanceMode,
   };
   return cache;

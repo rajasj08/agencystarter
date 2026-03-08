@@ -13,11 +13,9 @@ model SystemSettings {
   allowRegistration         Boolean  @default(true)
   emailVerificationRequired Boolean  @default(false)
   maintenanceMessage        String?
-  defaultTheme              String   @default("light")
   allowAgencyRegistration   Boolean  @default(true)
-  maxUsersPerAgency        Int?
-  defaultTimezone          String   @default("UTC")
-  maintenanceMode          Boolean  @default(false)
+  maxUsersPerAgency         Int?
+  maintenanceMode           Boolean  @default(false)
   updatedAt                 DateTime @updatedAt
 }
 

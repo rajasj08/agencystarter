@@ -7,7 +7,9 @@ export class SystemSettingsRepository {
     allowRegistration: boolean;
     emailVerificationRequired: boolean;
     maintenanceMessage: string | null;
-    defaultTheme: string;
+    allowAgencyRegistration: boolean;
+    maxUsersPerAgency: number | null;
+    maintenanceMode: boolean;
   } | null> {
     const row = await this.prisma.systemSettings.findFirst({ orderBy: { updatedAt: "desc" } });
     return row;

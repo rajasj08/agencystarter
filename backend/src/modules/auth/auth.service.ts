@@ -207,7 +207,7 @@ export class AuthService extends BaseService {
       throw new AppError(ERROR_CODES.INTERNAL_ERROR, "System role USER not found. Run seed.", 500);
     }
     const passwordHash = await bcrypt.hash(input.password, 12);
-    const status: UserStatus = env.REQUIRE_EMAIL_VERIFICATION ? USER_STATUS.PENDING_VERIFICATION : USER_STATUS.ACTIVE;
+    const status: UserStatus = config.emailVerificationRequired ? USER_STATUS.PENDING_VERIFICATION : USER_STATUS.ACTIVE;
     const user = await authRepo.createUser({
       email: input.email,
       passwordHash,
@@ -215,9 +215,9 @@ export class AuthService extends BaseService {
       roleId: systemUserRole.id,
       status,
     });
-    if (env.REQUIRE_EMAIL_VERIFICATION) {
+    if (config.emailVerificationRequired) {
       const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date(Date.now() + env.EMAIL_VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + env.EMAIL_VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000); // env for link TTL only
       await authRepo.createEmailVerification(user.id, token, expiresAt);
       await this.sendVerificationEmail(user.email, token, this.userDisplayName(user));
       return {

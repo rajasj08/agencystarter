@@ -5,10 +5,8 @@ export const systemSettingsUpdateSchema = z
     allowRegistration: z.boolean().optional(),
     emailVerificationRequired: z.boolean().optional(),
     maintenanceMessage: z.string().max(500).nullable().optional(),
-    defaultTheme: z.string().max(50).optional(),
     allowAgencyRegistration: z.boolean().optional(),
     maxUsersPerAgency: z.number().int().min(0).nullable().optional(),
-    defaultTimezone: z.string().max(50).optional(),
     maintenanceMode: z.boolean().optional(),
   })
   .strict();

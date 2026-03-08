@@ -5,10 +5,10 @@ export interface PlatformConfig {
   apiPrefix: string;
   corsOrigin: string;
   allowRegistration: boolean;
+  allowAgencyRegistration: boolean;
   emailVerificationRequired: boolean;
-  maintenanceMessage: string | null;
   maintenanceMode: boolean;
-  defaultTheme: string;
+  maintenanceMessage: string | null;
 }
 
 export async function getPlatformConfig(): Promise<PlatformConfig> {

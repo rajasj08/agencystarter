@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AppCard, AppButton } from "@/components/design";
-import { FormProviderWrapper, FormInput, FormCheckbox, FormSelect } from "@/components/forms";
+import { FormProviderWrapper, FormInput, FormCheckbox } from "@/components/forms";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,28 +17,14 @@ import { toast } from "@/lib/toast";
 
 const schema = z.object({
   allowRegistration: z.boolean(),
-  emailVerificationRequired: z.boolean(),
-  maintenanceMessage: z.string().max(500).nullable(),
-  defaultTheme: z.string().max(50),
   allowAgencyRegistration: z.boolean(),
+  emailVerificationRequired: z.boolean(),
   maxUsersPerAgency: z.number().int().min(0).nullable(),
-  defaultTimezone: z.string().max(50),
   maintenanceMode: z.boolean(),
+  maintenanceMessage: z.string().max(500).nullable(),
 });
 
 type FormValues = z.infer<typeof schema>;
-
-const timezoneOptions = [
-  "UTC",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Paris",
-  "Asia/Kolkata",
-  "Asia/Tokyo",
-].map((v) => ({ value: v, label: v }));
 
 export default function SuperadminSystemSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -48,13 +34,11 @@ export default function SuperadminSystemSettingsPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       allowRegistration: true,
-      emailVerificationRequired: false,
-      maintenanceMessage: null,
-      defaultTheme: "light",
       allowAgencyRegistration: true,
+      emailVerificationRequired: false,
       maxUsersPerAgency: null,
-      defaultTimezone: "UTC",
       maintenanceMode: false,
+      maintenanceMessage: null,
     },
   });
 
@@ -63,13 +47,11 @@ export default function SuperadminSystemSettingsPage() {
       .then((data: SystemSettingsDTO) => {
         form.reset({
           allowRegistration: data.allowRegistration,
-          emailVerificationRequired: data.emailVerificationRequired,
-          maintenanceMessage: data.maintenanceMessage,
-          defaultTheme: data.defaultTheme,
           allowAgencyRegistration: data.allowAgencyRegistration,
+          emailVerificationRequired: data.emailVerificationRequired,
           maxUsersPerAgency: data.maxUsersPerAgency,
-          defaultTimezone: data.defaultTimezone,
           maintenanceMode: data.maintenanceMode,
+          maintenanceMessage: data.maintenanceMessage,
         });
       })
       .catch(() => toast.error("Failed to load system settings"))
@@ -81,13 +63,11 @@ export default function SuperadminSystemSettingsPage() {
     try {
       const payload: SystemSettingsUpdateInput = {
         allowRegistration: values.allowRegistration,
-        emailVerificationRequired: values.emailVerificationRequired,
-        maintenanceMessage: values.maintenanceMessage,
-        defaultTheme: values.defaultTheme,
         allowAgencyRegistration: values.allowAgencyRegistration,
+        emailVerificationRequired: values.emailVerificationRequired,
         maxUsersPerAgency: values.maxUsersPerAgency ?? null,
-        defaultTimezone: values.defaultTimezone,
         maintenanceMode: values.maintenanceMode,
+        maintenanceMessage: values.maintenanceMessage,
       };
       await updateSystemSettings(payload);
       toast.success("System settings saved.");
@@ -112,7 +92,7 @@ export default function SuperadminSystemSettingsPage() {
       <AppCard className="max-w-2xl rounded-xl">
         <FormProviderWrapper form={form as never} onSubmit={onSubmit} className="space-y-6">
           <section>
-            <h2 className="text-base font-medium text-text-primary mb-3">Registration</h2>
+            <h2 className="text-base font-medium text-text-primary mb-3">Platform Access</h2>
             <div className="space-y-3">
               <FormCheckbox name="allowRegistration" label="Allow user registration" />
               <FormCheckbox name="allowAgencyRegistration" label="Allow agency registration (onboarding)" />
@@ -120,23 +100,23 @@ export default function SuperadminSystemSettingsPage() {
             </div>
           </section>
           <section>
-            <h2 className="text-base font-medium text-text-primary mb-3">Limits & defaults</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormInput
-                name="maxUsersPerAgency"
-                label="Max users per agency"
-                type="number"
-                helperText="Leave empty for no limit"
-              />
-              <FormSelect name="defaultTimezone" label="Default timezone" options={timezoneOptions} />
-            </div>
+            <h2 className="text-base font-medium text-text-primary mb-3">Platform Limits</h2>
+            <FormInput
+              name="maxUsersPerAgency"
+              label="Max users per agency"
+              type="number"
+              helperText="Leave empty for no limit"
+            />
           </section>
           <section>
             <h2 className="text-base font-medium text-text-primary mb-3">Maintenance</h2>
             <div className="space-y-3">
-              <FormCheckbox name="maintenanceMode" label="Maintenance mode" helperText="When on, show maintenance message" />
+              <FormCheckbox
+                name="maintenanceMode"
+                label="Enable maintenance mode"
+                helperText="When on, show maintenance message to non–super-admins"
+              />
               <FormInput name="maintenanceMessage" label="Maintenance message" />
-              <FormInput name="defaultTheme" label="Default theme" />
             </div>
           </section>
           <AppButton type="submit" loading={saving} disabled={saving}>

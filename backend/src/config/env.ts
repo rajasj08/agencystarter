@@ -33,7 +33,6 @@ export const env = {
 
   // JWT (dev default for local run; must set in production)
   JWT_SECRET: isDev ? optional("JWT_SECRET", "dev-secret-change-in-production") : required("JWT_SECRET"),
-  REQUIRE_EMAIL_VERIFICATION: optional("REQUIRE_EMAIL_VERIFICATION", "false") === "true",
 
   // API
   API_PREFIX: optional("API_PREFIX", "/api/v1"),

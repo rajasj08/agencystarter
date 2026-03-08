@@ -1,4 +1,4 @@
-import { features } from "../features.js";
+import { get as getSystemConfig } from "../../services/SystemConfigCache.js";
 
 export const AuthFeature = {
   name: "auth",
@@ -12,6 +12,6 @@ export const EmailVerificationFeature = {
   name: "email_verification",
   description: "Require email verification before login",
   get enabled(): boolean {
-    return features.EMAIL_VERIFICATION;
+    return getSystemConfig().emailVerificationRequired;
   },
 };

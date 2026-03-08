@@ -43,10 +43,8 @@ export interface SystemSettingsDTO {
   allowRegistration: boolean;
   emailVerificationRequired: boolean;
   maintenanceMessage: string | null;
-  defaultTheme: string;
   allowAgencyRegistration: boolean;
   maxUsersPerAgency: number | null;
-  defaultTimezone: string;
   maintenanceMode: boolean;
 }
 
@@ -134,10 +132,8 @@ export class SuperadminService {
       allowRegistration: row.allowRegistration,
       emailVerificationRequired: row.emailVerificationRequired,
       maintenanceMessage: row.maintenanceMessage,
-      defaultTheme: row.defaultTheme,
       allowAgencyRegistration: row.allowAgencyRegistration,
       maxUsersPerAgency: row.maxUsersPerAgency,
-      defaultTimezone: row.defaultTimezone,
       maintenanceMode: row.maintenanceMode,
     };
   }
@@ -154,10 +150,8 @@ export class SuperadminService {
       allowRegistration: row.allowRegistration,
       emailVerificationRequired: row.emailVerificationRequired,
       maintenanceMessage: row.maintenanceMessage,
-      defaultTheme: row.defaultTheme,
       allowAgencyRegistration: row.allowAgencyRegistration,
       maxUsersPerAgency: row.maxUsersPerAgency,
-      defaultTimezone: row.defaultTimezone,
       maintenanceMode: row.maintenanceMode,
     };
   }
