@@ -35,7 +35,6 @@ export function AgencyLoginForm({ agencySlug }: AgencyLoginFormProps) {
       setAuth(
         result.user,
         result.accessToken,
-        result.refreshToken!,
         result.permissions,
         result.permissionVersion
       );

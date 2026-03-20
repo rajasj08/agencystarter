@@ -91,7 +91,6 @@ export default function AgencyLoginPage() {
         {agency.ssoEnabled ? (
           <>
             <AgencySSOLogin
-              agencyId={agency.id}
               agencySlug={agencySlug}
               ssoProvider={agency.ssoProvider ?? "oidc"}
             />

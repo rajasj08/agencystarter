@@ -61,8 +61,8 @@ export default function SuperadminAgenciesPage() {
   const [sortBy, setSortBy] = useState<SortField | null>("createdAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [loading, setLoading] = useState(true);
-  const setAuth = useAuthStore((s) => s.setAuth);
-  const getStoredRefreshToken = useAuthStore((s) => s.getStoredRefreshToken);
+  const setTokens = useAuthStore((s) => s.setTokens);
+  const setAuthFromMe = useAuthStore((s) => s.setAuthFromMe);
 
   const loadAgencies = useCallback(
     (p = page, newSortBy?: SortField, newOrder?: SortOrder) => {
@@ -96,15 +96,12 @@ export default function SuperadminAgenciesPage() {
   }, [page]);
 
   async function handleLoginAs(agencyId: string) {
-    const refreshToken = getStoredRefreshToken();
-    if (!refreshToken) {
-      toast.error("Session expired. Please log in again.");
-      return;
-    }
     try {
       const { accessToken } = await loginAsAgency(agencyId);
+      // Switch bearer token first so subsequent /auth/me resolves impersonation context.
+      setTokens(accessToken);
       const me = await getMe();
-      setAuth(me.user, accessToken, refreshToken, me.permissions, me.permissionVersion);
+      setAuthFromMe(me.user, me.permissions, me.permissionVersion);
       toast.success("Login as agency started. Redirecting to dashboard.");
       window.location.href = ROUTES.DASHBOARD;
     } catch (e) {

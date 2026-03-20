@@ -2,7 +2,6 @@ import { api, type ApiSuccess } from "./api";
 
 /** Public agency details for the agency login page (no auth required). */
 export interface AgencyPublicLogin {
-  id: string;
   name: string;
   logoUrl: string | null;
   ssoEnabled: boolean;

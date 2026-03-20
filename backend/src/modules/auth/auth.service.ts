@@ -417,6 +417,16 @@ export class AuthService extends BaseService {
       return {
         user: {
           ...userPayload,
+          // In impersonation mode, expose effective tenant context so frontend guards resolve correctly.
+          agencyId: context.agencyId,
+          agency: agency
+            ? {
+                id: agency.id,
+                name: agency.name,
+                slug: agency.slug,
+                onboardingCompleted: agency.onboardingCompleted,
+              }
+            : null,
           impersonation: true,
           impersonatingAgency: agency ? { id: agency.id, name: agency.name } : null,
         },

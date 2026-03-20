@@ -15,6 +15,7 @@ import {
   INVARIANT_PASSWORD,
   type InvariantFixtures,
 } from "./setup-invariants.js";
+import { audit } from "../lib/audit.js";
 
 describe("Security invariants", () => {
   let app: ReturnType<typeof createApp>;
@@ -102,6 +103,65 @@ describe("Security invariants", () => {
       .expect(401);
   });
 
+  it("Platform API key without admin:all cannot access superadmin endpoints", async () => {
+    const login = await supertest(app)
+      .post(`${fixtures.apiPrefix}/auth/login`)
+      .send({ email: fixtures.superadminEmail, password: "SeedPassword1!" })
+      .expect(200);
+    const accessToken = (login.body as { data?: { accessToken?: string } }).data?.accessToken;
+    expect(accessToken).toBeDefined();
+
+    const createKey = await supertest(app)
+      .post(`${fixtures.apiPrefix}/superadmin/api-keys`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ name: "invariant-limited-platform-key", permissionKeys: ["agency:list"] })
+      .expect(200);
+    const key = (createKey.body as { data?: { key?: string } }).data?.key;
+    expect(key).toBeDefined();
+
+    await supertest(app)
+      .get(`${fixtures.apiPrefix}/superadmin/system-settings`)
+      .set("Authorization", `ApiKey ${key}`)
+      .expect(403);
+  });
+
+  it("Parallel superadmin disable attempts are both denied and invariant holds", async () => {
+    const login = await supertest(app)
+      .post(`${fixtures.apiPrefix}/auth/login`)
+      .send({ email: fixtures.superadminEmail, password: "SeedPassword1!" })
+      .expect(200);
+    const accessToken = (login.body as { data?: { accessToken?: string } }).data?.accessToken;
+    expect(accessToken).toBeDefined();
+
+    const createKey = await supertest(app)
+      .post(`${fixtures.apiPrefix}/superadmin/api-keys`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ name: "parallel-disable-test", permissionKeys: ["admin:all"] })
+      .expect(200);
+    const key = (createKey.body as { data?: { key?: string } }).data?.key;
+    expect(key).toBeDefined();
+
+    const [r1, r2] = await Promise.all([
+      supertest(app)
+        .patch(`${fixtures.apiPrefix}/superadmin/users/${fixtures.superadminId}/disable`)
+        .set("Authorization", `ApiKey ${key}`),
+      supertest(app)
+        .patch(`${fixtures.apiPrefix}/superadmin/users/${fixtures.superadminId}/disable`)
+        .set("Authorization", `ApiKey ${key}`),
+    ]);
+    expect(r1.status).toBe(403);
+    expect(r2.status).toBe(403);
+
+    const prisma = getPrismaForInternalUse();
+    const superadmin = await prisma.user.findUnique({
+      where: { id: fixtures.superadminId },
+      select: { status: true, deletedAt: true },
+    });
+    expect(superadmin).toBeDefined();
+    expect(superadmin!.deletedAt).toBeNull();
+    expect(superadmin!.status).toBe("ACTIVE");
+  });
+
   it("IP guard blocks disallowed CIDR", async () => {
     const login = await supertest(app)
       .post(`${fixtures.apiPrefix}/auth/login`)
@@ -158,5 +218,47 @@ describe("Security invariants", () => {
       .expect(404);
     expect((res.body as { success: boolean }).success).toBe(false);
     expect((res.body as { code?: string }).code).toBe("NOT_FOUND");
+  });
+
+  it("Audit enforces impersonation attribution from auth context", async () => {
+    const prisma = getPrismaForInternalUse();
+    const action = `invariant.audit.impersonation.${Date.now()}`;
+
+    await audit(
+      {
+        user: {
+          userId: fixtures.superadminId,
+          agencyId: fixtures.agencyAId,
+          role: "SUPER_ADMIN",
+          isSuperAdmin: true,
+          impersonation: true,
+          scope: "tenant",
+          isApiKey: false,
+        },
+        ip: "127.0.0.1",
+        get: () => "vitest",
+      } as never,
+      {
+        action,
+        resource: "audit_test",
+        resourceId: fixtures.agencyAId,
+        details: { note: "payload attempts impersonation=false" },
+        impersonation: false,
+      }
+    );
+
+    const row = await prisma.auditLog.findFirst({
+      where: { action },
+      orderBy: { createdAt: "desc" },
+      select: { userId: true, agencyId: true, impersonation: true, details: true },
+    });
+
+    expect(row).toBeDefined();
+    expect(row!.userId).toBe(fixtures.superadminId);
+    expect(row!.agencyId).toBe(fixtures.agencyAId);
+    expect(row!.impersonation).toBe(true);
+    expect((row!.details as { _actor?: { impersonation?: boolean } } | null)?._actor?.impersonation).toBe(
+      true
+    );
   });
 });

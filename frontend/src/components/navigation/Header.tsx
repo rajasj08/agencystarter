@@ -8,15 +8,12 @@ import { AppButton } from "@/components/design";
 
 export function Header() {
   const router = useRouter();
-  const { user, refreshToken, clearAuth, getStoredRefreshToken } = useAuthStore();
+  const { user, clearAuth } = useAuthStore();
   async function handleLogout() {
-    const token = refreshToken ?? getStoredRefreshToken();
-    if (token) {
-      try {
-        await logoutApi(token);
-      } catch {
-        // ignore
-      }
+    try {
+      await logoutApi();
+    } catch {
+      // ignore
     }
     clearAuth();
     router.push(ROUTES.LOGIN);

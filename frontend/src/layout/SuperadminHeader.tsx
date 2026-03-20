@@ -10,18 +10,13 @@ import { ROUTES } from "@/constants/routes";
 export function SuperadminHeader() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const refreshToken = useAuthStore((s) => s.refreshToken);
-  const getStoredRefreshToken = useAuthStore((s) => s.getStoredRefreshToken);
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
   async function handleLogout() {
-    const token = refreshToken ?? getStoredRefreshToken();
-    if (token) {
-      try {
-        await logoutApi(token);
-      } catch {
-        // ignore
-      }
+    try {
+      await logoutApi();
+    } catch {
+      // ignore
     }
     clearAuth();
     router.push(ROUTES.LOGIN);

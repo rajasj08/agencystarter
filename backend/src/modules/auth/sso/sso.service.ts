@@ -131,15 +131,20 @@ export class SsoService {
    */
   async initiate(
     provider: string,
-    agencyId: string,
+    agencyRef: string,
     returnUrl: string | undefined,
     meta?: { ipAddress?: string; userAgent?: string }
-  ): Promise<{ redirectUrl: string }> {
+  ): Promise<{ redirectUrl: string; state: string }> {
     if (provider !== "oidc") {
       throw new AppError(ERROR_CODES.INTERNAL_ERROR, "Unsupported SSO provider", 400);
     }
     const redirectUri = getSsoCallbackUrl();
-    const agency = await agencyRepo.findById(agencyId);
+    const bySlug = await agencyRepo.findBySlug(agencyRef);
+    const agency = bySlug ?? await agencyRepo.findById(agencyRef);
+    if (!agency) {
+      throw new AppError(ERROR_CODES.USER_NOT_FOUND, "Not found", 404);
+    }
+    const agencyId = agency.id;
     const config = getOidcConfigFromAgency(agency, provider);
     const nonce = crypto.randomBytes(16).toString("hex");
     const statePayload: SsoStatePayload = { agencyId, returnUrl, nonce };
@@ -147,7 +152,7 @@ export class SsoService {
     const { url: authUrl, codeVerifier } = await oidcProvider.getAuthorizationUrl(config, redirectUri, state, { nonce });
     statePayload.pkceCodeVerifier = codeVerifier;
     stateStore.set(state, { payload: statePayload, expires: Date.now() + STATE_TTL_MS });
-    return { redirectUrl: authUrl };
+    return { redirectUrl: authUrl, state };
   }
 
   /**

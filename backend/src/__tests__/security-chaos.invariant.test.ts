@@ -85,6 +85,12 @@ describe("Security chaos / negative", () => {
 
     const refreshToken = (login.body as { data?: { refreshToken?: string } }).data?.refreshToken;
     expect(refreshToken).toBeDefined();
+    const setCookie = (login.headers["set-cookie"] as string[] | undefined) ?? [];
+    const refreshCookie = setCookie.find((c) => c.startsWith("refresh_token="));
+    const csrfCookie = setCookie.find((c) => c.startsWith("csrf_token="));
+    const csrfToken = csrfCookie?.split(";")[0]?.split("=")[1];
+    expect(refreshCookie).toBeDefined();
+    expect(csrfToken).toBeDefined();
 
     const prisma = getPrismaForInternalUse();
     const crypto = await import("node:crypto");
@@ -102,7 +108,8 @@ describe("Security chaos / negative", () => {
 
     await supertest(app)
       .post(`${fixtures.apiPrefix}/auth/refresh`)
-      .send({ refreshToken })
+      .set("Cookie", [refreshCookie!, csrfCookie!])
+      .set("x-csrf-token", decodeURIComponent(csrfToken!))
       .expect(401);
 
     await prisma.session.deleteMany({ where: { id: session!.id } });

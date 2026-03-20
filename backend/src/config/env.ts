@@ -77,6 +77,13 @@ export const env = {
   AUTH_SSO_ENABLED: optional("AUTH_SSO_ENABLED", "false") === "true",
   /** When true, SSO callback may create a new user in the agency if email is verified and not found. */
   AUTH_SSO_AUTO_PROVISION: optional("AUTH_SSO_AUTO_PROVISION", "false") === "true",
+  /** Feature flag: require explicit ADMIN_ALL on superadmin routes in addition to PLATFORM scope. */
+  STRICT_SUPERADMIN_PERMISSIONS_ENABLED: optional("STRICT_SUPERADMIN_PERMISSIONS_ENABLED", "true") === "true",
+  /** Feature flag: enforce secure cookie session model + CSRF checks for refresh/logout session endpoints. */
+  SECURE_SESSION_COOKIES_ENABLED: optional("SECURE_SESSION_COOKIES_ENABLED", "true") === "true",
+  /** Public agency slug lookup limiter (anti-enumeration). */
+  RATE_LIMIT_AGENCY_LOOKUP_WINDOW_MS: parseInt(optional("RATE_LIMIT_AGENCY_LOOKUP_WINDOW_MS", "60000"), 10),
+  RATE_LIMIT_AGENCY_LOOKUP_MAX: parseInt(optional("RATE_LIMIT_AGENCY_LOOKUP_MAX", "20"), 10),
 } as const;
 
 export type Env = typeof env;

@@ -2,6 +2,9 @@ import { Router } from "express";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 import { authMiddleware } from "../../middleware/auth.js";
 import { requireRouteScope } from "../../middleware/routeScope.js";
+import { requirePermission } from "../../middleware/rbac.js";
+import { PERMISSIONS } from "../../constants/permissions.js";
+import { env } from "../../config/env.js";
 import { SuperadminController } from "./superadmin.controller.js";
 import { plansRoutes } from "../plans/plans.routes.js";
 import { superadminEmailTemplateRoutes } from "../email-template/email-template.routes.js";
@@ -10,7 +13,13 @@ const router = Router();
 const controller = new SuperadminController();
 
 router.use(authMiddleware);
+// Allow ending impersonation from tenant-scoped impersonation token.
+router.post("/stop", asyncHandler(controller.stopImpersonation.bind(controller)));
 router.use(requireRouteScope("PLATFORM"));
+// Platform scope is not enough for API keys; require explicit admin capability.
+if (env.STRICT_SUPERADMIN_PERMISSIONS_ENABLED) {
+  router.use(asyncHandler(requirePermission(PERMISSIONS.ADMIN_ALL)));
+}
 
 router.use("/plans", plansRoutes);
 router.use("/email-templates", superadminEmailTemplateRoutes);
@@ -44,7 +53,6 @@ router.delete("/users/:id", asyncHandler(controller.deleteUser.bind(controller))
 router.post("/users/:id/restore", asyncHandler(controller.restoreUser.bind(controller)));
 
 router.post("/impersonate", asyncHandler(controller.impersonate.bind(controller)));
-router.post("/stop", asyncHandler(controller.stopImpersonation.bind(controller)));
 router.get("/audit", asyncHandler(controller.getAuditLogs.bind(controller)));
 router.get("/audit/export", asyncHandler(controller.exportAuditLogs.bind(controller)));
 

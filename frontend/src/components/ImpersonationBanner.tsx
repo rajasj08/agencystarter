@@ -13,22 +13,16 @@ export function ImpersonationBanner() {
   const user = useAuthStore((s) => s.user);
   const setAuthFromMe = useAuthStore((s) => s.setAuthFromMe);
   const setTokens = useAuthStore((s) => s.setTokens);
-  const getStoredRefreshToken = useAuthStore((s) => s.getStoredRefreshToken);
   const router = useRouter();
   const [exiting, setExiting] = useState(false);
 
   if (!user?.impersonation || !user?.impersonatingAgency) return null;
 
   async function handleExit() {
-    const refreshToken = getStoredRefreshToken();
-    if (!refreshToken) {
-      toast.error("Session expired. Please log in again.");
-      return;
-    }
     setExiting(true);
     try {
       const { accessToken } = await stopImpersonation();
-      setTokens(accessToken, refreshToken);
+      setTokens(accessToken);
       const me = await getMe();
       setAuthFromMe(me.user, me.permissions, me.permissionVersion);
       toast.success("Impersonation ended.");

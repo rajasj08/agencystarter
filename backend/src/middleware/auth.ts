@@ -4,6 +4,7 @@ import { ApiKeyService } from "../modules/api-keys/api-key.service.js";
 import { AppError } from "../errors/AppError.js";
 import { ERROR_CODES } from "../constants/errorCodes.js";
 import type { RequestContext } from "../types/index.js";
+import { emitSecurityEvent } from "../lib/securityEvents.js";
 
 const authService = new AuthService();
 const apiKeyService = new ApiKeyService();
@@ -42,6 +43,11 @@ export function authMiddleware(req: AuthRequest, _res: Response, next: NextFunct
       .validateAndAttach(plainKey)
       .then((ctx) => {
         if (!ctx) {
+          emitSecurityEvent("api_key_abuse", {
+            reason: "invalid_or_revoked_key",
+            path: req.path,
+            ip: req.ip,
+          });
           next(new AppError(ERROR_CODES.API_KEY_INVALID, "Invalid or revoked API key", 401));
           return;
         }
@@ -64,6 +70,11 @@ export function authMiddleware(req: AuthRequest, _res: Response, next: NextFunct
         next();
       })
       .catch((err) => {
+        emitSecurityEvent("api_key_abuse", {
+          reason: "api_key_validation_error",
+          path: req.path,
+          ip: req.ip,
+        });
         if (err instanceof AppError) next(err);
         else next(new AppError(ERROR_CODES.API_KEY_INVALID, "Invalid API key", 401));
       });

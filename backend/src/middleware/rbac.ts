@@ -6,6 +6,7 @@ import type { Permission } from "../constants/permissions.js";
 import type { AuthRequest } from "./auth.js";
 import { getPermissionKeysForRole } from "../services/RolePermissionCache.js";
 import { roleRepository } from "../lib/data-access.js";
+import { emitSecurityEvent } from "../lib/securityEvents.js";
 
 const SUPER_ADMIN_ROLE_NAME = "SUPER_ADMIN";
 const ADMIN_ALL_KEY = PERMISSIONS.ADMIN_ALL;
@@ -38,6 +39,14 @@ export function requirePermission(...permissions: Permission[]) {
     if (user.isApiKey && user.apiKeyPermissions) {
       const allowed = permissions.some((p) => user.apiKeyPermissions!.has(ADMIN_ALL_KEY) || user.apiKeyPermissions!.has(p));
       if (!allowed) {
+        if (user.scope === "platform") {
+          emitSecurityEvent("denied_superadmin_action", {
+            actorType: "api_key",
+            userId: user.userId,
+            path: req.path,
+            requiredPermissions: permissions,
+          });
+        }
         throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Insufficient permissions", 403);
       }
       next();
@@ -54,6 +63,15 @@ export function requirePermission(...permissions: Permission[]) {
     const keys = await getPermissionKeysForRole(roleId);
     const allowed = permissions.some((p) => keys.has(ADMIN_ALL_KEY) || keys.has(p));
     if (!allowed) {
+      if (user.scope === "platform" || user.role === SUPER_ADMIN_ROLE_NAME) {
+        emitSecurityEvent("denied_superadmin_action", {
+          actorType: "user",
+          userId: user.userId,
+          role: user.role,
+          path: req.path,
+          requiredPermissions: permissions,
+        });
+      }
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Insufficient permissions", 403);
     }
     next();

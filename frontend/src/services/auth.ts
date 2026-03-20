@@ -119,15 +119,13 @@ export async function register(
   return data.data;
 }
 
-export async function refresh(refreshToken: string) {
-  const { data } = await api.post<ApiSuccess<Omit<LoginResponse, "refreshToken">>>("/auth/refresh", {
-    refreshToken,
-  });
+export async function refresh() {
+  const { data } = await api.post<ApiSuccess<Omit<LoginResponse, "refreshToken">>>("/auth/refresh", {});
   return data.data;
 }
 
-export async function logout(refreshToken: string) {
-  await api.post("/auth/logout", { refreshToken });
+export async function logout() {
+  await api.post("/auth/logout", {});
 }
 
 export async function getMe() {
@@ -211,9 +209,7 @@ export async function getSessions(): Promise<SessionInfo[]> {
   return Array.isArray(data?.data?.sessions) ? data.data.sessions : [];
 }
 
-export async function logoutOtherSessions(refreshToken: string): Promise<{ count: number }> {
-  const { data } = await api.post<ApiSuccess<{ message: string; count: number }>>("/auth/sessions/logout-others", {
-    refreshToken,
-  });
+export async function logoutOtherSessions(): Promise<{ count: number }> {
+  const { data } = await api.post<ApiSuccess<{ message: string; count: number }>>("/auth/sessions/logout-others", {});
   return { count: data.data.count };
 }

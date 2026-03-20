@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { AppCard, AppButton } from "@/components/design";
 import { getSessions, logoutOtherSessions } from "@/services/auth";
 import type { SessionInfo } from "@/services/auth";
-import { useAuthStore } from "@/store/auth";
 
 function formatSessionLabel(session: SessionInfo): string {
   const ua = session.userAgent ?? "";
@@ -35,7 +34,6 @@ export function SessionsSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
-  const getStoredRefreshToken = useAuthStore((s) => s.getStoredRefreshToken);
 
   const fetchSessions = () => {
     setError(null);
@@ -51,11 +49,9 @@ export function SessionsSection() {
   }, []);
 
   async function handleLogoutOthers() {
-    const token = getStoredRefreshToken();
-    if (!token) return;
     setLoggingOut(true);
     try {
-      await logoutOtherSessions(token);
+      await logoutOtherSessions();
       fetchSessions();
     } finally {
       setLoggingOut(false);

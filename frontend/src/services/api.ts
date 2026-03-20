@@ -7,14 +7,28 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:400
 export const api: AxiosInstance = axios.create({
   baseURL: API_BASE,
   headers: { "Content-Type": "application/json" },
+  withCredentials: true,
 });
 
 let refreshing = false;
+
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split("=")[1] ?? "") : null;
+}
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const accessToken = localStorage.getItem("accessToken");
     if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+    const method = (config.method ?? "get").toLowerCase();
+    if (["post", "put", "patch", "delete"].includes(method)) {
+      const csrf = getCookie("csrf_token");
+      if (csrf) config.headers["x-csrf-token"] = csrf;
+    }
   }
   return config;
 });
@@ -40,18 +54,12 @@ api.interceptors.response.use(
       hadAuth
     ) {
       original._retry = true;
-      const refreshToken = useAuthStore.getState().getStoredRefreshToken();
-      if (refreshToken && !refreshing) {
+      if (!refreshing) {
         refreshing = true;
         try {
-          const data = await refresh(refreshToken);
-          useAuthStore.getState().setAuth(
-            data.user,
-            data.accessToken,
-            refreshToken,
-            data.permissions,
-            data.permissionVersion
-          );
+          const data = await refresh();
+          useAuthStore.getState().setTokens(data.accessToken);
+          useAuthStore.getState().setAuthFromMe(data.user, data.permissions, data.permissionVersion);
           original.headers.Authorization = `Bearer ${data.accessToken}`;
           return api(original);
         } catch {

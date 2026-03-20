@@ -4,6 +4,7 @@ import { authMiddleware } from "../../middleware/auth.js";
 import { requirePermission, allowOnboardingOrPermission } from "../../middleware/rbac.js";
 import { requireTenant } from "../../middleware/tenant.js";
 import { tenantIpGuard } from "../../middleware/tenantIpGuard.js";
+import { rateLimitAgencyLookup } from "../../middleware/rateLimitAgencyLookup.js";
 import { PERMISSIONS } from "../../constants/permissions.js";
 import { AgencyController } from "./agency.controller.js";
 
@@ -11,7 +12,7 @@ const router = Router();
 const controller = new AgencyController();
 
 // Public: agency login page (no auth). Must be before authMiddleware.
-router.get("/slug/:agencySlug", asyncHandler(controller.getBySlugForLogin.bind(controller)));
+router.get("/slug/:agencySlug", rateLimitAgencyLookup, asyncHandler(controller.getBySlugForLogin.bind(controller)));
 
 // Order: auth; then permission. GET list/getById are platform or scoped in service; PATCH has tenant then permission.
 router.use(authMiddleware);

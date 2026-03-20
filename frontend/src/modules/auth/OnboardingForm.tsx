@@ -6,7 +6,7 @@ import { AuthCard, AppButton } from "@/components/design";
 import { FormProviderWrapper, FormInput, FormRootError } from "@/components/forms";
 import { useAppForm } from "@/components/forms/useAppForm";
 import { onboardingSchema, type OnboardingFormValues } from "@/validations/auth";
-import { useAuthStore } from "@/store/auth";
+import { useAuthStore, isSuperAdminUser } from "@/store/auth";
 import { api } from "@/services/api";
 import type { ApiSuccess } from "@/services/api";
 import type { MeResponse } from "@/services/auth";
@@ -23,7 +23,8 @@ export function OnboardingForm() {
 
   useEffect(() => {
     if (!accessToken) router.replace(ROUTES.LOGIN);
-    if (user?.isSuperAdmin) router.replace(ROUTES.SUPERADMIN);
+    if (isSuperAdminUser(user)) router.replace(ROUTES.SUPERADMIN);
+    if (user?.impersonation) router.replace(ROUTES.DASHBOARD);
     if (user?.agencyId && user?.agency?.onboardingCompleted) router.replace(ROUTES.DASHBOARD);
   }, [user, accessToken, router]);
 
@@ -46,7 +47,12 @@ export function OnboardingForm() {
     }
   }
 
-  if (!user || user.isSuperAdmin || (user.agencyId && user.agency?.onboardingCompleted)) {
+  if (
+    !user ||
+    isSuperAdminUser(user) ||
+    user.impersonation ||
+    (user.agencyId && user.agency?.onboardingCompleted)
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-text-secondary">Loading…</p>

@@ -509,6 +509,9 @@ export class SuperadminService {
   }
 
   async stopImpersonation(req: AuthRequest): Promise<{ accessToken: string; expiresIn: number }> {
+    if (!req.user?.isSuperAdmin || !req.user?.impersonation) {
+      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Impersonation context required", 403);
+    }
     const userId = req.user!.userId;
     const effectiveAgencyId = req.user!.agencyId; // agency being left (impersonation context)
     const user = await userRepository.findByIdForPlatform(userId);
@@ -690,16 +693,19 @@ export class SuperadminService {
     if (userId === req.user!.userId) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "You cannot disable your own account", 403);
     }
-    const user = await userRepository.findByIdForPlatform(userId);
-    if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
-    if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
-      const count = await userRepository.countSuperAdmins();
-      if (count <= 1) {
-        throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot modify the last superadmin", 403);
+    const prisma = getPrismaForInternalUse();
+    const user = await prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findFirst({
+        where: { id: userId, deletedAt: null },
+        include: { roleRef: { select: { name: true } } },
+      });
+      if (!existing) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
+      if ((existing.roleRef?.name ?? existing.role) === ROLES.SUPER_ADMIN) {
+        throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot be disabled", 403);
       }
-      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot be disabled", 403);
-    }
-    await userRepository.updateByUserIdPlatform(userId, { status: "DISABLED" });
+      await tx.user.update({ where: { id: userId }, data: { status: "DISABLED" } });
+      return existing;
+    });
     await audit(req, {
       action: "SUPERADMIN_ACTION",
       resource: "user",
@@ -809,18 +815,20 @@ export class SuperadminService {
     if (userId === req.user!.userId) {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "You cannot delete your own account", 403);
     }
-    const user = await userRepository.findByIdForPlatformIncludingDeleted(userId);
-    if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
-    if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
-      const count = await userRepository.countSuperAdmins();
-      if (count <= 1) {
-        throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot modify the last superadmin", 403);
+    const prisma = getPrismaForInternalUse();
+    const user = await prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findFirst({
+        where: { id: userId },
+        include: { roleRef: { select: { name: true } } },
+      });
+      if (!existing) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
+      if ((existing.roleRef?.name ?? existing.role) === ROLES.SUPER_ADMIN) {
+        throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot be deleted", 403);
       }
-      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin cannot be deleted", 403);
-    }
-    // Revoke all sessions immediately so deleted user cannot refresh; access tokens stop working after expiry.
-    await authRepository.deleteSessionsByUserId(userId);
-    await userRepository.softDeleteForPlatform(userId);
+      await tx.session.deleteMany({ where: { userId } });
+      await tx.user.updateMany({ where: { id: userId }, data: { deletedAt: new Date(), status: "DISABLED" } });
+      return existing;
+    });
     await audit(req, {
       action: "SUPERADMIN_ACTION",
       resource: "user",
@@ -860,18 +868,21 @@ export class SuperadminService {
     if (userId === req.user!.userId && status !== "ACTIVE") {
       throw new AppError(ERROR_CODES.PERMISSION_DENIED, "You cannot disable or suspend your own account", 403);
     }
-    const user = await userRepository.findByIdForPlatform(userId);
-    if (!user) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
-    if ((user.roleRef?.name ?? user.role) === ROLES.SUPER_ADMIN) {
-      const count = await userRepository.countSuperAdmins();
-      if (count <= 1) {
-        throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Cannot modify the last superadmin", 403);
+    const prisma = getPrismaForInternalUse();
+    const user = await prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findFirst({
+        where: { id: userId, deletedAt: null },
+        include: { roleRef: { select: { name: true } } },
+      });
+      if (!existing) throw new AppError(ERROR_CODES.USER_NOT_FOUND, "User not found", 404);
+      if ((existing.roleRef?.name ?? existing.role) === ROLES.SUPER_ADMIN) {
+        throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin status cannot be changed", 403);
       }
-      throw new AppError(ERROR_CODES.PERMISSION_DENIED, "Super admin status cannot be changed", 403);
-    }
-    await userRepository.updateByUserIdPlatform(userId, {
-      status,
-      ...(status === "ACTIVE" && { emailVerifiedAt: new Date() }),
+      await tx.user.update({
+        where: { id: userId },
+        data: { status, ...(status === "ACTIVE" && { emailVerifiedAt: new Date() }) },
+      });
+      return existing;
     });
     await audit(req, {
       action: "SUPERADMIN_ACTION",

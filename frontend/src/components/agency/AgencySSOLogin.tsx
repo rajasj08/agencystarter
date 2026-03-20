@@ -4,9 +4,8 @@ import { AppButton } from "@/components/design";
 import { ROUTES } from "@/constants/routes";
 
 export interface AgencySSOLoginProps {
-  agencyId: string;
-  /** Agency slug for return URL so errors/success stay in agency context. */
-  agencySlug?: string;
+  /** Agency slug used for SSO initiate and return URL context. */
+  agencySlug: string;
   /** Display name for the provider (e.g. "OIDC", "Google"). */
   ssoProvider: string;
 }
@@ -15,7 +14,7 @@ export interface AgencySSOLoginProps {
  * SSO login button for agency login page. Redirects to backend SSO initiate.
  * When agencySlug is set, return_url includes it so errors redirect back to agency login.
  */
-export function AgencySSOLogin({ agencyId, agencySlug, ssoProvider }: AgencySSOLoginProps) {
+export function AgencySSOLogin({ agencySlug, ssoProvider }: AgencySSOLoginProps) {
   function handleClick() {
     let returnUrl = "";
     if (typeof window !== "undefined") {
@@ -25,7 +24,7 @@ export function AgencySSOLogin({ agencyId, agencySlug, ssoProvider }: AgencySSOL
         : base;
     }
     const params = new URLSearchParams({
-      agencyId,
+      slug: agencySlug,
       ...(returnUrl ? { return_url: returnUrl } : {}),
     });
     const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";

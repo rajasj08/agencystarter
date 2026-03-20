@@ -13,7 +13,6 @@ const rolesService = new RolesService();
 
 /** Public DTO for agency login page (no auth required). */
 export interface AgencyPublicLoginDTO {
-  id: string;
   name: string;
   logoUrl: string | null;
   ssoEnabled: boolean;
@@ -35,7 +34,6 @@ export class AgencyService extends BaseService {
     // Global kill-switch: if SSO routes are disabled, the login page should not show SSO.
     const ssoGloballyEnabled = env.AUTH_SSO_ENABLED;
     return {
-      id: agency.id,
       name: agency.name,
       logoUrl: agency.logo ?? null,
       ssoEnabled: ssoGloballyEnabled ? (agency.ssoEnabled ?? false) : false,

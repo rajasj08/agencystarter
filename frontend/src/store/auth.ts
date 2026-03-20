@@ -3,7 +3,6 @@ import type { AuthUser } from "@/services/auth";
 import { EXPECTED_PERMISSION_VERSION } from "@/constants/permissionVersion";
 
 const ACCESS_KEY = "accessToken";
-const REFRESH_KEY = "refreshToken";
 const USER_KEY = "user";
 const PERMISSIONS_KEY = "permissions";
 const PERMISSION_VERSION_KEY = "permissionVersion";
@@ -11,7 +10,6 @@ const PERMISSION_VERSION_KEY = "permissionVersion";
 interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
-  refreshToken: string | null;
   /** From backend only; do not derive. */
   permissions: string[];
   /** Plan/feature capabilities (e.g. from subscription). Optional until wired. */
@@ -21,17 +19,15 @@ interface AuthState {
   setAuth: (
     user: AuthUser,
     accessToken: string,
-    refreshToken: string,
     permissions: string[],
     permissionVersion: number
   ) => void;
   /** Update user + permissions from /me (e.g. after getMe). */
   setAuthFromMe: (user: AuthUser, permissions: string[], permissionVersion: number) => void;
   setUser: (user: AuthUser) => void;
-  setTokens: (accessToken: string, refreshToken?: string) => void;
+  setTokens: (accessToken: string) => void;
   clearAuth: () => void;
   hydrate: () => void;
-  getStoredRefreshToken: () => string | null;
 }
 
 /** Use backend isSuperAdmin; no role-name checks. */
@@ -43,12 +39,11 @@ export function isSuperAdminUser(user: AuthUser | null): boolean {
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,
-  refreshToken: null,
   permissions: [],
   userCapabilities: [],
   permissionVersion: null,
   hydrated: false,
-  setAuth: (user, accessToken, refreshToken, permissions, permissionVersion) => {
+  setAuth: (user, accessToken, permissions, permissionVersion) => {
     if (permissionVersion !== EXPECTED_PERMISSION_VERSION && typeof window !== "undefined") {
       console.warn("[auth] Permission version mismatch; clearing session.");
       get().clearAuth();
@@ -57,13 +52,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     if (typeof window !== "undefined") {
       localStorage.setItem(ACCESS_KEY, accessToken);
-      localStorage.setItem(REFRESH_KEY, refreshToken);
       localStorage.setItem(USER_KEY, JSON.stringify(user));
       localStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permissions));
       localStorage.setItem(PERMISSION_VERSION_KEY, String(permissionVersion));
       document.cookie = "auth_session=1; path=/; max-age=900";
     }
-    set({ user, accessToken, refreshToken, permissions, userCapabilities: [], permissionVersion, hydrated: true });
+    set({ user, accessToken, permissions, userCapabilities: [], permissionVersion, hydrated: true });
   },
   setAuthFromMe: (user, permissions, permissionVersion) => {
     if (permissionVersion !== EXPECTED_PERMISSION_VERSION && typeof window !== "undefined") {
@@ -85,17 +79,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     set({ user });
   },
-  setTokens: (accessToken, refreshToken) => {
+  setTokens: (accessToken) => {
     if (typeof window !== "undefined") {
       localStorage.setItem(ACCESS_KEY, accessToken);
-      if (refreshToken != null) localStorage.setItem(REFRESH_KEY, refreshToken);
     }
-    set((s) => ({ ...s, accessToken, ...(refreshToken != null ? { refreshToken } : {}) }));
+    set((s) => ({ ...s, accessToken }));
   },
   clearAuth: () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem(ACCESS_KEY);
-      localStorage.removeItem(REFRESH_KEY);
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem(PERMISSIONS_KEY);
       localStorage.removeItem(PERMISSION_VERSION_KEY);
@@ -104,7 +96,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({
       user: null,
       accessToken: null,
-      refreshToken: null,
       permissions: [],
       userCapabilities: [],
       permissionVersion: null,
@@ -113,7 +104,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hydrate: () => {
     if (typeof window === "undefined") return;
     const accessToken = localStorage.getItem(ACCESS_KEY);
-    const refreshToken = localStorage.getItem(REFRESH_KEY);
     const userStr = localStorage.getItem(USER_KEY);
     const permissionsStr = localStorage.getItem(PERMISSIONS_KEY);
     const versionStr = localStorage.getItem(PERMISSION_VERSION_KEY);
@@ -132,7 +122,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         document.cookie = "auth_session=1; path=/; max-age=900";
         set({
           accessToken,
-          refreshToken,
           user,
           permissions,
           userCapabilities: [],
@@ -147,6 +136,4 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ hydrated: true });
     }
   },
-  getStoredRefreshToken: () =>
-    typeof window !== "undefined" ? localStorage.getItem(REFRESH_KEY) : null,
 }));

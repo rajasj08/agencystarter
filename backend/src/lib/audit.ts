@@ -30,6 +30,22 @@ function sanitizeDetails(details: Record<string, unknown> | null | undefined): o
   return Object.keys(out).length ? out : undefined;
 }
 
+function withTrustedActorDetails(
+  req: AuthRequest | null,
+  details: Record<string, unknown> | null | undefined
+): Record<string, unknown> | undefined {
+  if (!req?.user) return details ?? undefined;
+  const trustedActor = {
+    userId: req.user.userId,
+    agencyId: req.user.agencyId ?? null,
+    isSuperAdmin: req.user.isSuperAdmin ?? false,
+    impersonation: req.user.impersonation ?? false,
+    scope: req.user.scope ?? null,
+    isApiKey: req.user.isApiKey ?? false,
+  };
+  return { ...(details ?? {}), _actor: trustedActor };
+}
+
 export interface AuditPayload {
   action: string;
   resource: string;
@@ -60,7 +76,8 @@ export async function audit(req: AuthRequest | null, payload: AuditPayload): Pro
   const userId = req?.user?.userId;
   if (!userId) return;
 
-  const details = sanitizeDetails(payload.details ?? null);
+  const details = sanitizeDetails(withTrustedActorDetails(req, payload.details ?? null));
+  const impersonation = req?.user?.impersonation === true ? true : payload.impersonation ?? false;
 
   await auditLogRepository.create({
     agencyId: req?.user?.agencyId ?? null,
@@ -70,7 +87,7 @@ export async function audit(req: AuthRequest | null, payload: AuditPayload): Pro
     resource: payload.resource,
     resourceId: payload.resourceId ?? null,
     details: details ?? undefined,
-    impersonation: payload.impersonation ?? false,
+    impersonation,
     ipAddress: (req?.ip ?? (req as unknown as { ip?: string })?.ip) ?? null,
     userAgent: req?.get?.("user-agent") ?? null,
   });

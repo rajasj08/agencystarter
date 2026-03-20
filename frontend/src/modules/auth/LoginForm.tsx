@@ -34,7 +34,6 @@ export function LoginForm() {
       setAuth(
         result.user,
         result.accessToken,
-        result.refreshToken!,
         result.permissions,
         result.permissionVersion
       );

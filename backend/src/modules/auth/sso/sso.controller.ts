@@ -5,6 +5,8 @@ import { getAllowedReturnUrl } from "./redirect-validation.js";
 import { SsoService } from "./sso.service.js";
 import { BaseController } from "../../../core/BaseController.js";
 import { logger } from "../../../utils/logger.js";
+import { REFRESH_TOKEN_EXPIRY_MS } from "../../../constants/auth.js";
+import crypto from "node:crypto";
 
 const ssoService = new SsoService();
 
@@ -61,25 +63,34 @@ export class SsoController extends BaseController {
     }
   };
 
-  /** Redirect user to identity provider. Query: agencyId, return_url. Backend uses fixed callback URL (registered in IdP). */
+  /** Redirect user to identity provider. Query: agencyId or slug, return_url. Backend uses fixed callback URL (registered in IdP). */
   initiate = async (req: Request, res: Response): Promise<void> => {
     const { provider } = this.getParams(req);
     const query = this.getQuery(req);
     const agencyId = (query.agencyId as string)?.trim();
+    const slug = (query.slug as string)?.trim();
+    const agencyRef = agencyId || slug;
     const returnUrl = (query.return_url as string)?.trim() || undefined;
 
-    if (!agencyId) {
-      this.fail(res, "VALIDATION_ERROR", "agencyId is required", 400, { agencyId: "required" });
+    if (!agencyRef) {
+      this.fail(res, "VALIDATION_ERROR", "agencyId or slug is required", 400, { agencyId: "required" });
       return;
     }
 
     try {
-      const { redirectUrl } = await ssoService.initiate(
+      const { redirectUrl, state } = await ssoService.initiate(
         provider,
-        agencyId,
+        agencyRef,
         returnUrl,
         getClientMeta(req)
       );
+      res.cookie("auth_sso_state", state, {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: 5 * 60 * 1000,
+        path: "/",
+        secure: env.NODE_ENV === "production",
+      });
       if (returnUrl && getAllowedReturnUrl(returnUrl)) {
         res.cookie("sso_return_url", returnUrl, {
           httpOnly: true,
@@ -104,7 +115,8 @@ export class SsoController extends BaseController {
     const query = this.getQuery(req);
     const body = (req.body as Record<string, unknown>) || {};
     const code = (query.code as string)?.trim() || (body.code as string)?.trim();
-    const state = (query.state as string)?.trim() || (body.state as string)?.trim() || (req.cookies?.auth_sso_state as string)?.trim();
+    const state = (query.state as string)?.trim() || (body.state as string)?.trim();
+    const cookieState = (req.cookies?.auth_sso_state as string | undefined)?.trim();
 
     if (!code || !state) {
       logger.warn("SSO callback: missing code or state", {
@@ -125,6 +137,16 @@ export class SsoController extends BaseController {
       }
       return;
     }
+    if (!cookieState || cookieState !== state) {
+      logger.warn("SSO callback: state/cookie mismatch", {
+        hasCookieState: Boolean(cookieState),
+        hasState: Boolean(state),
+        method: req.method,
+      });
+      res.clearCookie("auth_sso_state", { path: "/" });
+      this.redirectToAppWithError(res, "Invalid SSO state. Please start login again.", state);
+      return;
+    }
 
     try {
       const tokens = await ssoService.callback(
@@ -137,10 +159,24 @@ export class SsoController extends BaseController {
       const target = getAllowedReturnUrl(rawReturnUrl) || env.CORS_ORIGIN.split(",")[0]?.trim() || env.CORS_ORIGIN;
       const hash = new URLSearchParams({
         access_token: tokens.accessToken,
-        refresh_token: tokens.refreshToken,
         expires_in: String(tokens.expiresIn),
       }).toString();
+      res.cookie("refresh_token", tokens.refreshToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: REFRESH_TOKEN_EXPIRY_MS,
+        path: "/",
+        secure: env.NODE_ENV === "production",
+      });
+      res.cookie("csrf_token", crypto.randomBytes(24).toString("base64url"), {
+        httpOnly: false,
+        sameSite: "lax",
+        maxAge: REFRESH_TOKEN_EXPIRY_MS,
+        path: "/",
+        secure: env.NODE_ENV === "production",
+      });
       res.clearCookie("sso_return_url", { path: "/" });
+      res.clearCookie("auth_sso_state", { path: "/" });
       res.redirect(302, `${target}#${hash}`);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -192,8 +228,10 @@ export class SsoController extends BaseController {
       const baseUrl = allowedReturnUrl ?? env.CORS_ORIGIN + "/login";
       const params = new URLSearchParams({ error: "sso_failed", error_description: err.message });
       if (allowedReturnUrl) {
+        res.clearCookie("auth_sso_state", { path: "/" });
         res.redirect(302, `${allowedReturnUrl}#${params.toString()}`);
       } else {
+        res.clearCookie("auth_sso_state", { path: "/" });
         res.redirect(302, `${baseUrl}?${params.toString()}`);
       }
       return;

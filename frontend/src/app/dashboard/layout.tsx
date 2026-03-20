@@ -30,6 +30,10 @@ export default function DashboardRootLayout({
       router.replace(ROUTES.SUPERADMIN);
       return;
     }
+    // Impersonation should not be blocked by tenant onboarding redirects.
+    if (user.impersonation) {
+      return;
+    }
     if (!user.agencyId || (user.agency && !user.agency.onboardingCompleted)) {
       router.replace(ROUTES.ONBOARDING);
     }

@@ -35,7 +35,6 @@ export default function LoginCallbackPage() {
     const fromAgency = new URLSearchParams(window.location.search).get("from_agency")?.trim();
 
     const accessToken = params.access_token?.trim();
-    const refreshToken = params.refresh_token?.trim();
     const error = params.error?.trim();
     const errorDescription = params.error_description?.trim();
 
@@ -64,14 +63,13 @@ export default function LoginCallbackPage() {
 
     window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
 
-    setTokens(accessToken!, refreshToken || undefined);
+    setTokens(accessToken!);
 
     getMe()
       .then((me) => {
         setAuth(
           me.user,
           accessToken!,
-          refreshToken || accessToken!,
           me.permissions,
           me.permissionVersion
         );
